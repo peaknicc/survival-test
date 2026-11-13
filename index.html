@@ -319,6 +319,15 @@ button.achv-new { width: 100%; text-align: left; font: inherit; color: inherit; 
 .axes-tip { margin: 2px 0 0; font-size: .78rem; }
 .type-more { display: grid; gap: 6px; margin-top: 8px; }
 .type-more p { margin: 0; font-size: .88rem; line-height: 1.6; }
+.type-now > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 700; padding: 4px 2px 10px; }
+.type-now > summary::-webkit-details-marker { display: none; }
+.type-now > summary::after { content: "▾"; color: var(--muted); transition: transform .2s; }
+.type-now[open] > summary::after { transform: rotate(180deg); }
+.type-past { display: grid; gap: 8px; }
+.type-past .axes { margin-top: 4px; }
+.start-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.ghost small { display: block; font-size: .72rem; font-weight: 500; color: var(--muted); }
 .type-hist { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .type-hist summary { cursor: pointer; font-size: .86rem; font-weight: 700; color: var(--accent); }
 .type-hist-list { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 3px; font-size: .84rem; }
@@ -2326,6 +2335,33 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// 🧬 유형 기록 한 회차의 내용 (성향 수치는 저장되기 시작한 뒤의 회차만 있음)
+function typeEntryBody(h) {
+  const T = TYPES[h.code];
+  if (!T) return `<p class="note">예전 방식으로 기록된 유형이에요.</p>`;
+  const bars = h.pct ? `<div class="axes">${AXES.map(a => { const v = h.pct[a.key], L = AXIS_NAME[a.key], R = AXIS_NAME[a.other], left = v >= 50, bal = v >= 40 && v <= 60;
+    return `<div class="axis4"><span class="axis4-l${left && !bal ? " on" : ""}">${L["이모지"]} ${L["이름"]} <b>${v}%</b></span><span class="axis4-bar"><i style="width:${v}%"></i></span><span class="axis4-r${!left && !bal ? " on" : ""}"><b>${100 - v}%</b> ${R["이름"]} ${R["이모지"]}</span></div>`; }).join("")}</div>` : "";
+  return `<p class="type-line">“${T.line}”</p><p class="note">${T.desc}</p>${bars}`;
+}
+// list: 유형 기록(오래된 것부터), firstNo: 첫 칸의 회차 번호, openNewest: 가장 최근 것을 펼쳐 둘지
+function typeHistHtml(list, openNewest) {
+  return `<div class="type-past">${list.map((h, i) => ({ h, n: i + 1 })).reverse().map(({ h, n }, k) => { const T = TYPES[h.code], d = h.t ? new Date(h.t) : null;
+    return `<details class="sec"${openNewest && k === 0 ? " open" : ""}><summary><span>${n}회차 · ${T ? T.emo + " " + T.name : "예전 유형"}</span><span class="sec-sub">${ENDINGS[h.ending] ? ENDINGS[h.ending].name + " · " : ""}${h.score}%${d ? " · " + (d.getMonth() + 1) + "/" + d.getDate() : ""}</span></summary>${typeEntryBody(h)}</details>`; }).join("")}</div>`;
+}
+function showTypesPage() {
+  stopTimer();
+  const list = loadJson(THIST_KEY, []);
+  app.innerHTML = `
+    <section class="res-panel">
+      <div class="panel-head"><button class="panel-back" type="button" id="types-back" aria-label="처음으로 돌아가기">←</button><h2 class="panel-title">🧬 나의 유형 기록</h2></div>
+      <p class="note">지금까지 ${list.length}판을 했어요. 회차를 누르면 그 판의 유형이 펼쳐져요.</p>
+      ${typeHistHtml(list, true)}
+    </section>`;
+  document.getElementById("types-back").addEventListener("click", () => { showStart(); window.scrollTo(0, 0); });
+  setNav({});
+  window.scrollTo(0, 0);
+}
+
 // 첫 화면에서 여는 통계·명단 (결과 화면의 '통계·명단'과 같은 모양)
 function showStatsPage() {
   stopTimer();
@@ -2508,7 +2544,10 @@ function showStart() {
       </div>
     </div>
     <button class="nav-primary inline-go" id="start-go" disabled><span class="ic ic-play"></span>시작하기</button>
-    <button class="btn ghost" id="open-records">📊 통계 보기</button>
+    <div class="start-row">
+      <button class="btn ghost" id="open-records">📊 통계 보기</button>
+      <button class="btn ghost" id="open-types" ${loadJson(THIST_KEY, []).length ? "" : "disabled"}>🧬 나의 유형${loadJson(THIST_KEY, []).length ? "" : "<small>한 판 하면 열려요</small>"}</button>
+    </div>
     <button class="btn ghost" id="open-tools" ${canSeeTools() ? "" : "hidden"}>🛠 테스트 도구 (제작자 전용)</button>
     ${socialsHtml()}`;
   document.getElementById("open-tools").addEventListener("click", showTools);
@@ -2516,6 +2555,7 @@ function showStart() {
   if (!isUnlocked("hard") && !canSeeTools()) hardMode = false;   // 제작자는 해금 전에도 하드 스위치를 씀
   else document.getElementById("hard-row").addEventListener("click", e => { hardMode = !hardMode; e.currentTarget.classList.toggle("on", hardMode); });
   document.getElementById("open-records").addEventListener("click", showStatsPage);
+  document.getElementById("open-types").addEventListener("click", showTypesPage);
   document.getElementById("start-nick").addEventListener("input", e => saveNick(e.target.value.trim().slice(0, 12)));
   app.querySelectorAll("[data-loc]").forEach(b => b.addEventListener("click", () => {
     startLoc = b.dataset.loc;
@@ -4658,7 +4698,8 @@ function showResult() {
   const typePct = axisPct(kg, startIdsAll.length);
   let typeHist = loadJson(THIST_KEY, []);
   const typeKey = typeOf({ kg, itemScore, risky: riskyCount, nItems: startIdsAll.length }), T = TYPES[typeKey], badges = badgesOf(itemScore), axes = axesOf(itemScore, kg, riskyCount, startIdsAll.length);
-  if (!testMode && !flags.typeHistSaved) { flags.typeHistSaved = true; typeHist = [...typeHist, { code: typeKey, ending, score, t: Date.now() }].slice(-50); saveJson(THIST_KEY, typeHist); }
+  if (!testMode && !flags.typeHistSaved) { flags.typeHistSaved = true; typeHist = [...typeHist, { code: typeKey, ending, score, t: Date.now(), pct: typePct }].slice(-50); saveJson(THIST_KEY, typeHist); }
+  const typePast = flags.typeHistSaved ? typeHist.slice(0, -1) : typeHist;   // 이번 판을 뺀 지난 회차
   const hardTitle = !hardMode || hp <= 0 ? "" : ending === "perfect" ? "👑 지옥에서 돌아온 자" : score >= 70 ? "🔥 불지옥 생존자" : "🔥 하드 생존자";
   if (!testMode) { const ft = loadJson(TYPE_KEY, []); if (!ft.includes(typeKey)) saveJson(TYPE_KEY, [...ft, typeKey]); }
   const achv = checkAchievements({ score, ending, itemScore, kg, empty: startIdsAll.length === 0 });
@@ -4763,6 +4804,7 @@ function showResult() {
     </section>
     <section class="res-panel" id="panel-type" hidden>
       <div class="panel-head"><button class="panel-back" type="button" aria-label="결과로 돌아가기">←</button><h2 class="panel-title">🧬 나의 유형</h2></div>
+      <details class="type-now" open><summary>🧬 이번 판 나의 유형 · ${typePast.length + 1}회차</summary>
       <div class="type-card">
       <span class="tag">나의 유형</span>
       <h2>${T.emo} ${nick ? escapeHtml(nick) + "님은 " : ""}${T.name} <small class="type-code">${typeKey}</small></h2>
@@ -4777,9 +4819,10 @@ function showResult() {
       <p class="note axes-tip">👆 막대를 누르면 어떤 선택 때문에 이렇게 나왔는지 보여요</p>
       <div class="type-more"><p class="eyebrow">나의 생존 성향 풀이</p>${AXES.map(a => { const v = typePct[a.key], side = v >= 50 ? a.key : a.other, N = AXIS_NAME[side]; return v >= 40 && v <= 60 ? `<p><strong>⚖️ ${AXIS_NAME[a.key]["이름"]} ${v} : ${100 - v} ${AXIS_NAME[a.other]["이름"]}</strong> · ${axisLevel(a.key, v)}. ${AXIS_MID[a.key]}</p>` : `<p><strong>${N["이모지"]} ${N["이름"]} ${v >= 50 ? v : 100 - v}%</strong> · ${axisLevel(a.key, v)}. ${AXIS_TEXT[side]}</p>`; }).join("")}</div>
       ${T.match && TYPES[T.match.code] ? `<p class="type-match">🤝 비상시 찰떡궁합 · <strong>${TYPES[T.match.code].emo} ${TYPES[T.match.code].name}</strong> <small>${T.match.why}</small></p>` : ""}
-      ${typeHist.length ? `<div class="type-hist"><p class="eyebrow">🧬 나의 유형 기록 · 이번이 ${typeHist.length}회차</p>${typeHist.length >= 2 ? `<details><summary>지난 기록 ${typeHist.length - 1}개 펼쳐 보기</summary><ol class="type-hist-list">${typeHist.slice(0, -1).map((h, i) => ({ h, n: i + 1 })).reverse().map(({ h, n }) => `<li><b>${n}회차</b> · ${TYPES[h.code] ? TYPES[h.code].emo + " " + TYPES[h.code].name : "예전 유형"} <small>${TYPES[h.code] ? h.code + " · " : ""}${ENDINGS[h.ending] ? ENDINGS[h.ending].name : ""} · ${h.score}%</small></li>`).join("")}</ol></details>` : ""}</div>` : ""}
       ${badges.length ? `<div class="trait-row">${badges.map(b => `<span class="trait badge">${b}</span>`).join("")}</div>` : ""}
     </div>
+      </details>
+      ${typePast.length ? `<p class="eyebrow">지난 회차 기록 ${typePast.length}개 · 눌러서 펼치기</p>${typeHistHtml(typePast, false)}` : `<p class="note">다음 판부터 지난 회차 기록이 여기에 쌓여요.</p>`}
     </section>
     <section class="res-panel" id="panel-achv" hidden>
       <div class="panel-head"><button class="panel-back" type="button" aria-label="결과로 돌아가기">←</button><h2 class="panel-title">🏅 업적</h2></div>
@@ -4880,8 +4923,22 @@ function showResult() {
   }
   // 이미지 저장 (확인 창이 뜸). 저장 기능이 없는 화면이면 길게 눌러 저장하도록 안내
   async function saveCard() {
+    note.hidden = false;
     if (!cardBlob) { note.textContent = "결과 카드를 아직 만드는 중이에요. 잠시 뒤 다시 눌러 주세요."; return false; }
-    if (!dl) { note.textContent = "위 이미지를 길게 눌러(또는 우클릭) 저장해 주세요."; return false; }
+    if (!dl) {
+      const name = `생존테스트_${score}.png`;
+      try {
+        const file = new File([cardBlob], name, { type: "image/png" });
+        if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file] }); note.textContent = ""; return false; }
+          catch (err) { if (err && err.name === "AbortError") { note.textContent = "이미지 저장을 취소했어요."; return false; } }
+        }
+        const link = document.createElement("a"), href = URL.createObjectURL(cardBlob);
+        link.href = href; link.download = name; document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 10000);
+        note.textContent = "✅ 이미지를 내려받았어요. 안 보이면 위 이미지를 길게 눌러(또는 우클릭) 저장해 주세요."; return false;
+      } catch (err) { note.textContent = "위 이미지를 길게 눌러(또는 우클릭) 저장해 주세요."; return false; }
+    }
     try { await dl.save({ filename: `생존테스트_${score}.png`, data: cardBlob }); return true; }
     catch (err) { note.textContent = err && err.code === "declined" ? "이미지 저장을 취소했어요." : "여기서는 저장할 수 없어요. 위 이미지를 길게 눌러 저장해 주세요."; return false; }
   }
