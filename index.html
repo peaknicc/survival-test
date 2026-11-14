@@ -878,7 +878,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.82";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.83";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -4268,6 +4268,10 @@ const MINI = {
 };
 
 // 선택 하나를 처리 (체력·점수·분기·편의점 구매). 화면과 자동 플레이가 같이 씀
+// 🧬 행동 축: 선택 문장이 대담(D)인지 신중(T)인지. 문장에 드러난 행동이 먼저, 그다음에 '점수가 크게 낮은 선택'을 대담으로 봄
+const BOLD_RE = /나가|뒤진다|달아|올라탄다|무작정|터널로|차를 몰고|30km|먼저 /;
+const CALM_RE = /기다린다|확인한다|지켜보|머문다|남는다|안내대로|따른다|알린다|대기한다|버틴다|숨는다|숨은 채|숨어|잠적|조심조심|더듬더듬|이야기를 듣|이야기를 들으며|모른 척/;
+function paceOf(lbl, risky) { return BOLD_RE.test(lbl) ? "D" : CALM_RE.test(lbl) ? "T" : risky ? "D" : ""; }
 function applyChoice(index, choice) {
   const cost = choice.move ? moveCost(choice.move) : 0;
   hp = clampHp(hp - cost + (choice.hp || 0));
@@ -4281,22 +4285,23 @@ function applyChoice(index, choice) {
   if (choice.coop > 0) traits.coopP = (traits.coopP || 0) + choice.coop; else if (choice.coop < 0) traits.coopN = (traits.coopN || 0) - choice.coop;
   { const d = (choice.duty || 0) + (choice.info || 0); if (d > 0) traits.dutyP = (traits.dutyP || 0) + d; else if (d < 0) traits.dutyN = (traits.dutyN || 0) - d; }
   { const lbl = choice.label || choice.t || "";
-    if (risky || /나가|뒤진다|달아|올라탄다|무작정|터널로|차를 몰고|30km|먼저 /.test(lbl)) traits.bold = (traits.bold || 0) + 1;
-    else if (/기다린다|확인한다|지켜보|머문다|남는다|안내대로|따른다|알린다/.test(lbl)) traits.calm = (traits.calm || 0) + 1; }
+    if (paceOf(lbl, risky) === "D") traits.bold = (traits.bold || 0) + 1;
+    else if (paceOf(lbl, risky) === "T") traits.calm = (traits.calm || 0) + 1; }
   { // 🧬 유형 칸에서 '왜 이렇게 나왔나' 보여 주기용 기록
     const lbl = choice.label || choice.t || "", st = scenes[index] ? scenes[index].stage : "";
     const L = traits.axLog || (traits.axLog = []);
     if (choice.coop > 0) L.push({ k: "A", lbl, st }); else if (choice.coop < 0) L.push({ k: "O", lbl, st });
     const d = (choice.duty || 0) + (choice.info || 0); if (d > 0) L.push({ k: "N", lbl, st }); else if (d < 0) L.push({ k: "M", lbl, st });
-    if (risky || /나가|뒤진다|달아|올라탄다|무작정|터널로|차를 몰고|30km|먼저 /.test(lbl)) L.push({ k: "D", lbl, st });
-    else if (/기다린다|확인한다|지켜보|머문다|남는다|안내대로|따른다|알린다/.test(lbl)) L.push({ k: "T", lbl, st });
+    if (paceOf(lbl, risky) === "D") L.push({ k: "D", lbl, st });
+    else if (paceOf(lbl, risky) === "T") L.push({ k: "T", lbl, st });
   }
   if (choice.fromItem && choice.p >= 7) traits.itemUses += 1;   // 물건을 상황에 맞게 잘 쓴 횟수
   if (choice.bad) flags.bad = true;
-  if (choice.bad) {   // 🧬 나쁜 선택은 성향에도 크게: 내 판단 +2 · 대담 +1 · 혼자 +1
-    traits.dutyN = (traits.dutyN || 0) + 2; traits.bold = (traits.bold || 0) + 1; traits.coopN = (traits.coopN || 0) + 1;
+  if (choice.bad) {   // 🧬 나쁜 선택은 성향에도 크게: 내 판단 +2 · 혼자 +1 · 대담 +1(숨거나 지켜보는 선택은 빼고)
+    const badBold = paceOf(choice.label || choice.t || "", false) !== "T";
+    traits.dutyN = (traits.dutyN || 0) + 2; if (badBold) traits.bold = (traits.bold || 0) + 1; traits.coopN = (traits.coopN || 0) + 1;
     const L = traits.axLog || (traits.axLog = []), lbl = choice.label || choice.t || "", st = scenes[index] ? scenes[index].stage : "";
-    L.push({ k: "M", lbl: lbl + " (나쁜 선택 · 크게 반영)", st }, { k: "D", lbl, st }, { k: "O", lbl, st });
+    L.push({ k: "M", lbl: lbl + " (나쁜 선택 · 크게 반영)", st }, { k: "O", lbl, st }); if (badBold) L.push({ k: "D", lbl, st });
   }
   if (choice.achv) flags["a_" + choice.achv] = true;   // 업적 조건 (예: 심폐소생술)
   if (choice.achv === "cpr") flags.cprAt = index;      // 🦋 가슴압박한 장면 번호
