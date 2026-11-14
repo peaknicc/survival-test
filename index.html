@@ -396,6 +396,10 @@ button.achv-new { width: 100%; text-align: left; font: inherit; color: inherit; 
   box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.18);
 }
 .placed .rot .emo { font-size: 1.15rem; }
+.placed .rot .nm { font-size: .56rem; font-weight: 700; line-height: 1.08; letter-spacing: -.04em; word-break: break-all; max-width: 100%; overflow: hidden; }
+.placed .rot:has(.nm) .emo { font-size: .95rem; line-height: 1.1; }
+.pslot .rot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.1; overflow: hidden; }
+.pslot .rot .nm { font-size: .56rem; font-weight: 700; letter-spacing: -.04em; white-space: nowrap; max-width: 100%; overflow: hidden; }
 .placed .uses { position: absolute; bottom: 3px; right: 5px; font-size: .7rem; font-weight: 700; color: var(--item-fg); }
 .placed .del {
   position: absolute; top: -6px; right: -6px; width: 19px; height: 19px; border-radius: 50%;
@@ -2335,10 +2339,33 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// 🧬 유형 카드 (결과 화면의 이번 판·지난 회차가 같은 모양). d: { code, pct, kg, nItems, itemUses, axLog, badges, nick }
+function typeCardHtml(d) {
+  const T = TYPES[d.code], nick = d.nick || "", typeKey = d.code, typePct = d.pct, kg = d.kg, badges = d.badges || [];
+  const OLD_NOTE = "<li class=\"note\">이 회차는 자세한 선택 기록이 저장되기 전이에요</li>";
+  return `
+      <div class="type-card">
+      <span class="tag">나의 유형</span>
+      <h2>${T.emo} ${nick ? escapeHtml(nick) + "님은 " : ""}${T.name} <small class="type-code">${typeKey}</small></h2>
+      <p class="type-line">“${T.line}”</p>
+      <p class="note">${T.desc}</p>
+      <p class="eyebrow axes-title">나의 생존 성향</p>
+      <div class="axes">${AXES.map(a => { const v = typePct[a.key], L = AXIS_NAME[a.key], R = AXIS_NAME[a.other], left = v >= 50, bal = v >= 40 && v <= 60;
+        const why = a.key === "P"
+          ? d.kg == null ? OLD_NOTE : `<li>🎒 가방 <b>${kg}kg</b> · 물건 <b>${d.nItems}개</b> · 상황에 맞게 꺼내 쓴 횟수 <b>${d.itemUses || 0}번</b></li><li class="note">가방이 무겁고 물건이 많을수록, 잘 꺼내 쓸수록 '${L["이름"]}' 쪽이에요</li>`
+          : ((d.axLog || []).filter(x => x.k === a.key || x.k === a.other).map(x => `<li><b>${AXIS_NAME[x.k]["이모지"]} ${AXIS_NAME[x.k]["이름"]}</b> · ${x.lbl} <small>${x.st}</small></li>`).join("") || (d.axLog ? "<li class=\"note\">이번 판엔 이 축에 영향을 준 선택이 없었어요</li>" : OLD_NOTE));
+        return `<details class="axis4d"><summary class="axis4"><span class="axis4-l${left && !bal ? " on" : ""}">${L["이모지"]} ${L["이름"]} <b>${v}%</b></span><span class="axis4-bar"><i style="width:${v}%"></i></span><span class="axis4-r${!left && !bal ? " on" : ""}"><b>${100 - v}%</b> ${R["이름"]} ${R["이모지"]}</span><small class="axis4-lv">${axisLevel(a.key, v)}</small></summary><ul class="axis-why">${why}</ul></details>`; }).join("")}</div>
+      <p class="note axes-tip">👆 막대를 누르면 어떤 선택 때문에 이렇게 나왔는지 보여요</p>
+      <div class="type-more"><p class="eyebrow">나의 생존 성향 풀이</p>${AXES.map(a => { const v = typePct[a.key], side = v >= 50 ? a.key : a.other, N = AXIS_NAME[side]; return v >= 40 && v <= 60 ? `<p><strong>⚖️ ${AXIS_NAME[a.key]["이름"]} ${v} : ${100 - v} ${AXIS_NAME[a.other]["이름"]}</strong> · ${axisLevel(a.key, v)}. ${AXIS_MID[a.key]}</p>` : `<p><strong>${N["이모지"]} ${N["이름"]} ${v >= 50 ? v : 100 - v}%</strong> · ${axisLevel(a.key, v)}. ${AXIS_TEXT[side]}</p>`; }).join("")}</div>
+      ${T.match && TYPES[T.match.code] ? `<p class="type-match">🤝 비상시 찰떡궁합 · <strong>${TYPES[T.match.code].emo} ${TYPES[T.match.code].name}</strong> <small>${T.match.why}</small></p>` : ""}
+      ${badges.length ? `<div class="trait-row">${badges.map(b => `<span class="trait badge">${b}</span>`).join("")}</div>` : ""}
+    </div>`;
+}
 // 🧬 유형 기록 한 회차의 내용 (성향 수치는 저장되기 시작한 뒤의 회차만 있음)
 function typeEntryBody(h) {
   const T = TYPES[h.code];
   if (!T) return `<p class="note">예전 방식으로 기록된 유형이에요.</p>`;
+  if (h.pct) return typeCardHtml({ code: h.code, pct: h.pct, kg: h.kg, nItems: h.n, itemUses: h.uses, axLog: h.ax, badges: h.badges, nick: h.nick });
   const bars = h.pct ? `<div class="axes">${AXES.map(a => { const v = h.pct[a.key], L = AXIS_NAME[a.key], R = AXIS_NAME[a.other], left = v >= 50, bal = v >= 40 && v <= 60;
     return `<div class="axis4"><span class="axis4-l${left && !bal ? " on" : ""}">${L["이모지"]} ${L["이름"]} <b>${v}%</b></span><span class="axis4-bar"><i style="width:${v}%"></i></span><span class="axis4-r${!left && !bal ? " on" : ""}"><b>${100 - v}%</b> ${R["이름"]} ${R["이모지"]}</span></div>`; }).join("")}</div>` : "";
   return `<p class="type-line">“${T.line}”</p><p class="note">${T.desc}</p>${bars}`;
@@ -2515,6 +2542,7 @@ function showStart() {
     <p class="disclaimer">⚠ 이 테스트는 정부 자료를 바탕으로 만든 <strong>가상 상황</strong>이에요. 실제 전쟁 상황과 정부 대응은 다를 수 있어요.</p>
     <label class="nick-row">✏️ 닉네임 <input id="start-nick" maxlength="12" placeholder="결과 화면과 카드 이미지에 들어가요" value="${escapeHtml(loadNick())}"></label>
     ${SHEET_API ? `<p class="note">끝까지 하면 닉네임·점수·엔딩·챙긴 물건이 통계와 생존자 명단에 남아요. 실명 대신 닉네임을 써 주세요.</p>` : ""}
+    <p class="msg" id="nick-msg" style="min-height:0"></p>
     <p>재난문자가 울린 저녁부터 나흘째까지. 제한 시간 안에 주변을 뒤져 가방을 싸고, 상황마다 선택하거나 가방 속 물건을 꺼내 쓰세요.</p>
     <p class="note">생존율은 실제 확률이 아니라, 정부 비상시 국민행동요령에 얼마나 맞게 행동했는지를 점수로 매긴 재미용 가상 점수예요.</p>
     <div class="toggles">
@@ -2556,7 +2584,21 @@ function showStart() {
   else document.getElementById("hard-row").addEventListener("click", e => { hardMode = !hardMode; e.currentTarget.classList.toggle("on", hardMode); });
   document.getElementById("open-records").addEventListener("click", showStatsPage);
   document.getElementById("open-types").addEventListener("click", showTypesPage);
-  document.getElementById("start-nick").addEventListener("input", e => saveNick(e.target.value.trim().slice(0, 12)));
+  {
+    // 한글 조합 중에는 글자를 건드리지 않고, 조합이 끝났을 때 못 쓰는 글자를 지움
+    const box = document.getElementById("start-nick"), msg = document.getElementById("nick-msg");
+    const check = fix => {
+      const n = cleanNick(box.value);
+      let note = "";
+      if (fix && n.text !== box.value) { box.value = n.text; note = "닉네임은 한글·영어·일본어·숫자만 쓸 수 있어요."; }
+      if (n.bad) note = "쓸 수 없는 말이 들어 있어요. 다른 닉네임을 적어 주세요.";
+      msg.textContent = note; box.style.borderColor = n.bad ? "var(--bad)" : "";
+      saveNick(n.bad ? "" : n.text.trim());
+    };
+    box.addEventListener("input", e => check(!e.isComposing));
+    box.addEventListener("compositionend", () => check(true));
+    box.addEventListener("blur", () => check(true));
+  }
   app.querySelectorAll("[data-loc]").forEach(b => b.addEventListener("click", () => {
     startLoc = b.dataset.loc;
     app.querySelectorAll("[data-loc]").forEach(x => x.classList.toggle("on", x.dataset.loc === startLoc));
@@ -2848,15 +2890,18 @@ function onDragEnd(e) {
   rerender(() => renderPack(ok ? "" : "거기엔 안 들어가요."));
 }
 
+// 한 칸짜리 물건·앞주머니에 적는 짧은 이름
+const SHORT_NAME = {"battery":"배터리","game":"게임기","lighter":"라이터","whistle":"호루라기","food":"비상식량","digestive":"쿠키","tuna1":"참치캔","rice1":"즉석밥","ramen1":"라면","bottle2l":"생수 2L","vitamin":"영양제","tylenol":"타이레놀","cash":"현금","id":"신분증","passport":"여권","jewelry":"금반지","light":"손전등","stick":"등산 스틱","raincoat":"우비","memo":"연락처","carkey":"차 키","mask":"마스크","tissue1":"휴지","toothset":"칫솔","wetwipe":"물티슈","sanitizer":"소독제","umbrella":"우산","diary":"다이어리","lipstick":"립스틱","rationwater":"배급 생수","book":"책","pillpouch":"상비약","keylight":"미니 전등","earphones":"이어폰","hanky":"손수건","energybar":"에너지바","candy":"사탕","coffeemix":"믹스커피","papercup":"종이컵","cbrmask":"방독면","spare_batt":"건전지","tape":"테이프","gloves":"고무장갑","cupramen1":"컵라면","smallbottle":"생수","bottle":"생수 2병"};
+const shortName = it => SHORT_NAME[it.base] || SHORT_NAME[it.id] || it.name.replace(/\s*\(.*\)/, "");
 function pocketHtml(mode, list = pocket) {
   let slots = "";
   for (let i = 0; i < POCKET_SLOTS; i++) {
     const id = list[i];
     if (!id) { slots += `<div class="pslot"></div>`; continue; }
     const it = ITEM_BY_ID[id];
-    if (mode === "edit") slots += `<div class="pslot"><button class="rot" title="${it.name}" aria-label="${it.name}">${it.emo}</button><button class="del" id="pdel-${id}" data-pdel="${id}" aria-label="${it.name} 빼기">✕</button></div>`;
-    else if (mode === "use") slots += `<div class="pslot"><button class="rot${pendingUse === id ? " armed" : ""}" id="use-${id}" data-use="${id}" title="${it.name}" aria-label="${it.name} 꺼내 쓰기">${it.emo}</button></div>`;
-    else slots += `<div class="pslot"><div class="rot" title="${it.name}" style="display:grid;place-items:center">${it.emo}</div></div>`;
+    if (mode === "edit") slots += `<div class="pslot"><button class="rot" title="${it.name}" aria-label="${it.name}">${it.emo}<span class="nm">${shortName(it)}</span></button><button class="del" id="pdel-${id}" data-pdel="${id}" aria-label="${it.name} 빼기">✕</button></div>`;
+    else if (mode === "use") slots += `<div class="pslot"><button class="rot${pendingUse === id ? " armed" : ""}" id="use-${id}" data-use="${id}" title="${it.name}" aria-label="${it.name} 꺼내 쓰기">${it.emo}<span class="nm">${shortName(it)}</span></button></div>`;
+    else slots += `<div class="pslot"><div class="rot" title="${it.name}">${it.emo}<span class="nm">${shortName(it)}</span></div></div>`;
   }
   return `<div class="pocket" style="grid-template-columns:auto repeat(${POCKET_SLOTS},1fr)"><span class="plabel">앞<br>주머니</span>${slots}</div>`;
 }
@@ -2871,7 +2916,7 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const item = ITEM_BY_ID[p.id];
     const style = `grid-column:${p.x + 1} / span ${p.w};grid-row:${p.y + 1} / span ${p.h}`;
     const label = item.perCell && uses[p.id] ? item.name.replace(/\d+병/, uses[p.id] + "병") : item.name;
-    const inner = `<span class="emo">${item.emo}</span>${p.w >= 2 ? `<span>${label}</span>` : ""}`;
+    const inner = `<span class="emo">${item.emo}</span>${p.w >= 2 ? `<span>${label}</span>` : `<span class="nm">${shortName(item)}</span>`}`;
     const usesTag = mode === "use" && item.uses && !item.perCell ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed" style="${style}"><div class="rot">${inner}</div></div>`;
     if (mode === "use") return `<div class="placed" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
@@ -4612,7 +4657,14 @@ function badgesOf(itemScore) {
   return b;
 }
 const NICK_KEY = "survival-test-nick";
-function loadNick() { try { return localStorage.getItem(NICK_KEY) || ""; } catch (e) { return ""; } }
+function loadNick() { try { const n = cleanNick(localStorage.getItem(NICK_KEY)); return n.bad ? "" : n.text.trim(); } catch (e) { return ""; } }
+// 닉네임: 한글·영어·일본어·숫자·띄어쓰기만. 욕설·비하 표현이 들어 있으면 bad
+const NICK_BAD = ["시발","씨발","씨바","씨팔","시팔","ㅅㅂ","ㅆㅂ","병신","ㅂㅅ","븅신","좆","좃","존나","ㅈㄴ","지랄","ㅈㄹ","개새","새끼","ㅅㄲ","섹스","ㅅㅅ","자지","보지","창녀","창년","느금","니애미","니미","엠창","애미","염병","엿먹","꺼져","닥쳐","미친놈","미친년","썅","쌍년","쌍놈","걸레년","강간","성폭","야동","자살","일베","운지","노알라","한남충","김치녀","된장녀","틀딱","맘충","급식충","짱깨","쪽바리","조센징","깜둥","메갈","토토","카지노","fuck","fuk","shit","bitch","sex","dick","pussy","cunt","nigg","porn","asshole","bastard","slut","whore","rape","sibal","ssibal","tlqkf","くそ","クソ","死ね","しね","ちんこ","チンコ","まんこ","マンコ","セックス","ばか","バカ","馬鹿","きもい","キモい"];
+function cleanNick(v) {
+  const text = String(v || "").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").slice(0, 12);
+  const flat = text.toLowerCase().replace(/[\s0-9]/g, "");
+  return { text, bad: NICK_BAD.some(w => flat.includes(w)) };
+}
 function saveNick(v) { try { localStorage.setItem(NICK_KEY, v); } catch (e) {} }
 function gradeOf(score) {
   if (score >= 90) return { name: "끝까지 살아남는 사람", text: "행동요령도, 가방도, 체력 관리도 거의 완벽해요." };
@@ -4698,7 +4750,7 @@ function showResult() {
   const typePct = axisPct(kg, startIdsAll.length);
   let typeHist = loadJson(THIST_KEY, []);
   const typeKey = typeOf({ kg, itemScore, risky: riskyCount, nItems: startIdsAll.length }), T = TYPES[typeKey], badges = badgesOf(itemScore), axes = axesOf(itemScore, kg, riskyCount, startIdsAll.length);
-  if (!testMode && !flags.typeHistSaved) { flags.typeHistSaved = true; typeHist = [...typeHist, { code: typeKey, ending, score, t: Date.now(), pct: typePct }].slice(-50); saveJson(THIST_KEY, typeHist); }
+  if (!testMode && !flags.typeHistSaved) { flags.typeHistSaved = true; typeHist = [...typeHist, { code: typeKey, ending, score, t: Date.now(), pct: typePct, kg, n: startIdsAll.length, uses: traits.itemUses || 0, ax: traits.axLog || [], badges, nick: loadNick() }].slice(-50); saveJson(THIST_KEY, typeHist); }
   const typePast = flags.typeHistSaved ? typeHist.slice(0, -1) : typeHist;   // 이번 판을 뺀 지난 회차
   const hardTitle = !hardMode || hp <= 0 ? "" : ending === "perfect" ? "👑 지옥에서 돌아온 자" : score >= 70 ? "🔥 불지옥 생존자" : "🔥 하드 생존자";
   if (!testMode) { const ft = loadJson(TYPE_KEY, []); if (!ft.includes(typeKey)) saveJson(TYPE_KEY, [...ft, typeKey]); }
@@ -4805,22 +4857,7 @@ function showResult() {
     <section class="res-panel" id="panel-type" hidden>
       <div class="panel-head"><button class="panel-back" type="button" aria-label="결과로 돌아가기">←</button><h2 class="panel-title">🧬 나의 유형</h2></div>
       <details class="type-now" open><summary>🧬 이번 판 나의 유형 · ${typePast.length + 1}회차</summary>
-      <div class="type-card">
-      <span class="tag">나의 유형</span>
-      <h2>${T.emo} ${nick ? escapeHtml(nick) + "님은 " : ""}${T.name} <small class="type-code">${typeKey}</small></h2>
-      <p class="type-line">“${T.line}”</p>
-      <p class="note">${T.desc}</p>
-      <p class="eyebrow axes-title">나의 생존 성향</p>
-      <div class="axes">${AXES.map(a => { const v = typePct[a.key], L = AXIS_NAME[a.key], R = AXIS_NAME[a.other], left = v >= 50, bal = v >= 40 && v <= 60;
-        const why = a.key === "P"
-          ? `<li>🎒 가방 <b>${kg}kg</b> · 물건 <b>${startIdsAll.length}개</b> · 상황에 맞게 꺼내 쓴 횟수 <b>${traits.itemUses || 0}번</b></li><li class="note">가방이 무겁고 물건이 많을수록, 잘 꺼내 쓸수록 '${L["이름"]}' 쪽이에요</li>`
-          : ((traits.axLog || []).filter(x => x.k === a.key || x.k === a.other).map(x => `<li><b>${AXIS_NAME[x.k]["이모지"]} ${AXIS_NAME[x.k]["이름"]}</b> · ${x.lbl} <small>${x.st}</small></li>`).join("") || "<li class=\"note\">이번 판엔 이 축에 영향을 준 선택이 없었어요</li>");
-        return `<details class="axis4d"><summary class="axis4"><span class="axis4-l${left && !bal ? " on" : ""}">${L["이모지"]} ${L["이름"]} <b>${v}%</b></span><span class="axis4-bar"><i style="width:${v}%"></i></span><span class="axis4-r${!left && !bal ? " on" : ""}"><b>${100 - v}%</b> ${R["이름"]} ${R["이모지"]}</span><small class="axis4-lv">${axisLevel(a.key, v)}</small></summary><ul class="axis-why">${why}</ul></details>`; }).join("")}</div>
-      <p class="note axes-tip">👆 막대를 누르면 어떤 선택 때문에 이렇게 나왔는지 보여요</p>
-      <div class="type-more"><p class="eyebrow">나의 생존 성향 풀이</p>${AXES.map(a => { const v = typePct[a.key], side = v >= 50 ? a.key : a.other, N = AXIS_NAME[side]; return v >= 40 && v <= 60 ? `<p><strong>⚖️ ${AXIS_NAME[a.key]["이름"]} ${v} : ${100 - v} ${AXIS_NAME[a.other]["이름"]}</strong> · ${axisLevel(a.key, v)}. ${AXIS_MID[a.key]}</p>` : `<p><strong>${N["이모지"]} ${N["이름"]} ${v >= 50 ? v : 100 - v}%</strong> · ${axisLevel(a.key, v)}. ${AXIS_TEXT[side]}</p>`; }).join("")}</div>
-      ${T.match && TYPES[T.match.code] ? `<p class="type-match">🤝 비상시 찰떡궁합 · <strong>${TYPES[T.match.code].emo} ${TYPES[T.match.code].name}</strong> <small>${T.match.why}</small></p>` : ""}
-      ${badges.length ? `<div class="trait-row">${badges.map(b => `<span class="trait badge">${b}</span>`).join("")}</div>` : ""}
-    </div>
+      ${typeCardHtml({ code: typeKey, pct: typePct, kg, nItems: startIdsAll.length, itemUses: traits.itemUses || 0, axLog: traits.axLog || [], badges, nick })}
       </details>
       ${typePast.length ? `<p class="eyebrow">지난 회차 기록 ${typePast.length}개 · 눌러서 펼치기</p>${typeHistHtml(typePast, false)}` : `<p class="note">다음 판부터 지난 회차 기록이 여기에 쌓여요.</p>`}
     </section>
