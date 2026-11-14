@@ -2381,7 +2381,10 @@ async function initDb() {
       try {
         const list = await (await fetch(SHEET_API)).json();
         const mine = records.filter(r => String(r.id).startsWith("me"));   // 불러오는 사이 내가 방금 보낸 기록
-        records = mine.concat(Array.isArray(list) ? list : []);
+        // 시트에서 온 값은 그대로 믿지 않고 숫자·글자 모양을 맞춘 뒤에 씀
+        const num = (v, max) => Math.max(0, Math.min(max, Number(v) || 0)), str = (v, n) => String(v == null ? "" : v).slice(0, n), ids = a => (Array.isArray(a) ? a : []).filter(x => typeof x === "string").slice(0, 90);
+        const safe = r => ({ id: str(r.id, 20), createdAt: Number(r.createdAt) || 0, name: cleanNick(r.name).bad ? "" : cleanNick(r.name).text, group: str(r.group, 1), startLoc: str(r.startLoc, 10), route: str(r.route, 20), evac: r.evac === true, mode: r.mode === "hard" ? "hard" : "normal", score: Math.round(num(r.score, 100)), ending: str(r.ending, 30), hp: Math.round(num(r.hp, 100)), kg: num(r.kg, 100), type: str(r.type, 4), items: ids(r.items), achv: ids(r.achv), axes: r.axes && typeof r.axes === "object" ? r.axes : null });
+        records = mine.concat((Array.isArray(list) ? list : []).filter(r => r && typeof r === "object").map(safe));
         recordsState = "ready";
       } catch (e) { recordsState = "error"; }
       clearTimeout(timer); refreshRecordViews(); return;
