@@ -786,6 +786,7 @@ button.social-btn { font: inherit; font-weight: 700; cursor: pointer; }
 .placed .del, .pslot .del { top: -4px; right: -4px; width: 18px; height: 18px; font-size: .62rem; background: rgba(29, 33, 27, .82); color: #fff; box-shadow: 0 0 0 1.5px var(--item); }
 .pack-hint { font-size: .82rem; }
 .placed .rot:has(.nm) .emo { font-size: .85rem; line-height: 1.15; }
+.placed .rot .nm.wide { word-break: keep-all; }
 /* ── 버전·버그 제보 ── */
 .link-btn { font: inherit; font-size: .85rem; color: var(--muted); background: none; border: 0; padding: 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; justify-self: center; align-self: center; }
 .link-btn:hover { color: var(--fg); }
@@ -876,7 +877,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.81";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.82";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -3144,7 +3145,7 @@ function onDragEnd(e) {
 }
 
 // 한 칸짜리 물건·앞주머니에 적는 짧은 이름
-const SHORT_NAME = {"battery":"배터리","game":"게임기","lighter":"라이터","whistle":"호루라기","food":"비상식량","digestive":"쿠키","tuna1":"참치캔","rice1":"즉석밥","ramen1":"봉지라면","bottle2l":"생수 2L","vitamin":"영양제","tylenol":"타이레놀","cash":"현금","id":"신분증","passport":"여권","jewelry":"금반지","light":"손전등","stick":"등산스틱","raincoat":"우비","memo":"연락 메모","carkey":"차 키","mask":"마스크","tissue1":"휴지","toothset":"칫솔치약","wetwipe":"물티슈","sanitizer":"손소독제","umbrella":"장우산","diary":"다이어리","lipstick":"립스틱","rationwater":"배급 생수","book":"책","pillpouch":"약 파우치","keylight":"키링 전등","earphones":"이어폰","hanky":"손수건","energybar":"에너지바","candy":"사탕","coffeemix":"커피 스틱","papercup":"종이컵","cbrmask":"방독면","spare_batt":"건전지","tape":"테이프","gloves":"고무장갑","cupramen1":"컵라면","smallbottle":"생수 1병","bottle":"생수 2병"};
+const SHORT_NAME = {"battery":"배터리","game":"게임기","lighter":"라이터","whistle":"호루라기","food":"비상식량","digestive":"쿠키","tuna1":"참치캔","rice1":"즉석밥","ramen1":"봉지라면","bottle2l":"생수 2L","vitamin":"영양제","tylenol":"타이레놀","cash":"현금","id":"신분증","passport":"여권","jewelry":"금반지","light":"손전등","stick":"등산스틱","raincoat":"우비","memo":"연락 메모","carkey":"차 키","mask":"마스크","tissue1":"휴지","toothset":"칫솔치약","wetwipe":"물티슈","sanitizer":"손소독제","umbrella":"장우산","diary":"다이어리","lipstick":"립스틱","rationwater":"생수","book":"책","pillpouch":"약 파우치","keylight":"키링 전등","earphones":"이어폰","hanky":"손수건","energybar":"에너지바","candy":"사탕","coffeemix":"커피 스틱","papercup":"종이컵","cbrmask":"방독면","spare_batt":"건전지","tape":"테이프","gloves":"고무장갑","cupramen1":"컵라면","smallbottle":"생수","bottle":"생수 2병"};
 const shortName = it => SHORT_NAME[it.base] || SHORT_NAME[it.id] || it.name.replace(/\s*\(.*\)/, "");
 function pocketHtml(mode, list = pocket) {
   let slots = "";
@@ -3169,8 +3170,13 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const item = ITEM_BY_ID[p.id];
     const style = `grid-column:${p.x + 1} / span ${p.w};grid-row:${p.y + 1} / span ${p.h}`;
     const label = item.perCell && uses[p.id] ? item.name.replace(/\d+병/, uses[p.id] + "병") : item.name;
-    const inner = `<span class="emo">${item.emo}</span>${p.w >= 2 ? `<span>${label}</span>` : `<span class="nm">${shortName(item)}</span>`}`;
-    const usesTag = mode === "use" && item.uses && !item.perCell ? `<span class="uses">×${uses[p.id]}</span>` : "";
+    const wide = p.w >= 2;
+    let nmText = wide ? label : shortName(item);
+    if (!wide && item.perCell && uses[p.id]) nmText = nmText.replace(/\d+병/, uses[p.id] + "병");
+    const hasUses = mode === "use" && item.uses && !item.perCell;
+    const inlineUses = hasUses && p.w === 1 && p.h === 1;   // 한 칸짜리는 구석 숫자가 이름과 겹쳐서 이름 옆에 적음
+    const inner = `<span class="emo">${item.emo}</span><span class="nm${wide ? " wide" : ""}">${nmText}${inlineUses ? ` ×${uses[p.id]}` : ""}</span>`;
+    const usesTag = hasUses && !inlineUses ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed" style="${style}"><div class="rot">${inner}</div></div>`;
     if (mode === "use") return `<div class="placed" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
     return `<div class="placed" style="${style}">
@@ -3849,26 +3855,28 @@ const EP_IMG_RAW = {"COVER_MAIN":"img/COVER_MAIN.jpg","BF_NEIGHBOR_CARRY":"img/B
 const EP_IMG = new Proxy(EP_IMG_RAW, { get: (t, k) => (typeof k === "string" && gender === "M" && t[k + "_M"]) || t[k] });   // 👨 남자 그림 (키_M) 우선
 const SIGN_WHY = {"exit":"비상구는 건물 밖으로 나가는 문이에요.","quake":"지진 때 가는 야외 공터예요. 공습 땐 지하로!","heat":"여름 더위를 피하는 곳이에요.","tsunami":"해일 때 높은 곳으로 가는 표지예요.","relief":"재난 뒤 머무는 곳이라 공습 대피와는 달라요."};
 const MINI = {
-  // 🫀 가슴압박 박자: 첫 탭부터 10초, 분당 100~120회가 정답
+  // 🫀 가슴압박 박자: 첫 탭부터 10초, 그 10초 전체 평균이 분당 100~120회면 정답
   cpr: {
     title: "🫀 가슴압박",
     intro: "가슴 한가운데에 두 손을 포갰다.",
-    how: () => "하트를 <strong>박자에 맞춰 연타</strong>하세요. 기준은 <strong>분당 100~120회</strong>예요. 바깥 원이 그 빠르기로 뛰어요.",
+    how: () => "하트를 <strong>박자에 맞춰 연타</strong>하세요. 기준은 <strong>분당 100~120회</strong>예요. 처음부터 끝까지 <strong>10초 전체 평균</strong>으로 재니까 쉬지 말고 꾸준히 누르세요. 바깥 원이 그 빠르기로 뛰어요.",
     play(box, end) {
       box.innerHTML = `
         <p class="mini-tag">🫀 가슴압박 · 첫 탭부터 10초</p>
         <div class="cpr-wrap">${hardMode ? "" : `<span class="cpr-guide"></span>`}<button class="cpr-heart" id="cpr-heart" aria-label="가슴 누르기">❤️</button></div>
-        <p class="mini-live"><b id="cpr-left">10.0</b>초${hardMode ? " · 🔥 박자는 감으로!" : ` · 지금 분당 <b id="cpr-bpm">–</b>회`}</p>`;
+        <p class="mini-live"><b id="cpr-left">10.0</b>초${hardMode ? " · 🔥 박자는 감으로!" : ` · 평균 분당 <b id="cpr-bpm">–</b>회`}</p>`;
       const heart = document.getElementById("cpr-heart"), leftEl = document.getElementById("cpr-left"), bpmEl = document.getElementById("cpr-bpm");
       const taps = []; let t0 = 0, iv = null;
-      const bpmOf = list => {
-        if (list.length < 3) return 0;
-        const gaps = list.slice(1).map((t, i) => t - list[i]).sort((a, b) => a - b);
-        return Math.round(60000 / gaps[Math.floor(gaps.length / 2)]);   // 가운데 값 → 실수 한 번에 덜 흔들림
+      // 첫 탭부터의 전체 평균. 끝났을 때(atEnd) 마지막 탭 뒤로 오래 쉬었으면 10초 전체로 나눔 → 일찍 멈추면 느린 것으로 셈
+      const avgBpm = atEnd => {
+        if (taps.length < 3) return 0;
+        let span = taps[taps.length - 1] - taps[0];
+        if (atEnd && 10000 - span > 1.5 * span / (taps.length - 1)) span = 10000;
+        return Math.round(60000 * (taps.length - 1) / span);
       };
       const finish = () => {
         clearInterval(iv);
-        const bpm = bpmOf(taps);
+        const bpm = avgBpm(true);
         const tip = "실제 가슴압박: 가슴뼈 아래쪽 절반을 약 5cm 깊이로, 분당 100~120회 (2025 한국 심폐소생술 가이드라인)";
         if (taps.length < 6) return end({ ok: false, hp: -6, big: "", text: "거의 누르지 못했어요. 쉬지 않고 계속 눌러야 해요.", log: "🫀 가슴압박: 거의 못 누름 ❌", tip });
         const slow = bpm < 100 ? "느렸" : "빨랐";
@@ -3888,7 +3896,7 @@ const MINI = {
         }
         taps.push(now);
         heart.classList.remove("push"); void heart.offsetWidth; heart.classList.add("push");
-        const b = bpmOf(taps.slice(-5));
+        const b = avgBpm(false);
         if (b && bpmEl) { bpmEl.textContent = b; bpmEl.className = b >= 100 && b <= 120 ? "good" : "bad"; }
       };
       const onKey = e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) tap(e); };
@@ -4282,8 +4290,8 @@ function applyChoice(index, choice) {
   }
   if (choice.fromItem && choice.p >= 7) traits.itemUses += 1;   // 물건을 상황에 맞게 잘 쓴 횟수
   if (choice.bad) flags.bad = true;
-  if (choice.bad) {   // 🧬 나쁜 선택은 성향에도 크게: 내 판단 +2 · 대담 +2 · 혼자 +1
-    traits.dutyN = (traits.dutyN || 0) + 2; traits.bold = (traits.bold || 0) + 2; traits.coopN = (traits.coopN || 0) + 1;
+  if (choice.bad) {   // 🧬 나쁜 선택은 성향에도 크게: 내 판단 +2 · 대담 +1 · 혼자 +1
+    traits.dutyN = (traits.dutyN || 0) + 2; traits.bold = (traits.bold || 0) + 1; traits.coopN = (traits.coopN || 0) + 1;
     const L = traits.axLog || (traits.axLog = []), lbl = choice.label || choice.t || "", st = scenes[index] ? scenes[index].stage : "";
     L.push({ k: "M", lbl: lbl + " (나쁜 선택 · 크게 반영)", st }, { k: "D", lbl, st }, { k: "O", lbl, st });
   }
