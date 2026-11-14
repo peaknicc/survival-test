@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="전쟁이 나면, 나는 살아남을까? 정부 비상시 국민행동요령을 바탕으로 만든 가상 생존 테스트">
 <meta property="og:title" content="생존 테스트">
 <meta property="og:description" content="전쟁이 나면, 나는 살아남을까?">
@@ -875,7 +876,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.78";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.80";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2044,7 +2045,7 @@ let lootTaken = new Set();   // 이번 판에 주운 물건 (장면+물건 단�
 let savedThisRun = false;   // 이번 판 결과를 명단에 올렸는지 (결과 화면을 다시 열어도 두 번 저장 안 되게)
 let tried = [], penalty = 0, sceneMsg = "", sceneMsgOk = false, notice = null;
 const app = document.getElementById("app");
-{ const tt = document.querySelector(".topbar-title"); if (tt) tt.textContent = "생존 테스트 · " + APP_VERSION + " 시험판"; }
+{ const tt = document.querySelector(".topbar-title"); if (tt) tt.textContent = "생존 테스트 · " + APP_VERSION; }
 
 // ───────── 소리 (브라우저 기본 Web Audio로 사이렌을 직접 만듦, 외부 파일 없음) ─────────
 const VOLUME = 0.06;          // 적당히 작게
@@ -2419,7 +2420,7 @@ async function initDb() {
         const mine = records.filter(r => String(r.id).startsWith("me"));   // 불러오는 사이 내가 방금 보낸 기록
         // 시트에서 온 값은 그대로 믿지 않고 숫자·글자 모양을 맞춘 뒤에 씀
         const num = (v, max) => Math.max(0, Math.min(max, Number(v) || 0)), str = (v, n) => String(v == null ? "" : v).slice(0, n), ids = a => (Array.isArray(a) ? a : []).filter(x => typeof x === "string").slice(0, 90);
-        const safe = r => ({ id: str(r.id, 20), createdAt: Number(r.createdAt) || 0, name: cleanNick(r.name).bad ? "" : cleanNick(r.name).text, group: str(r.group, 1), startLoc: str(r.startLoc, 10), route: str(r.route, 20), evac: r.evac === true, mode: r.mode === "hard" ? "hard" : "normal", score: Math.round(num(r.score, 100)), ending: str(r.ending, 30), hp: Math.round(num(r.hp, 100)), kg: num(r.kg, 100), type: str(r.type, 4), items: ids(r.items), achv: ids(r.achv), axes: r.axes && typeof r.axes === "object" ? r.axes : null });
+        const safe = r => ({ id: str(r.id, 20), createdAt: Number(r.createdAt) || 0, name: cleanNick(r.name).bad ? "" : cleanNick(r.name).text, group: str(r.group, 1), startLoc: str(r.startLoc, 10), route: str(r.route, 20), evac: r.evac === true, mode: r.mode === "hard" ? "hard" : "normal", score: Math.round(num(r.score, 100)), ending: str(r.ending, 30), hp: Math.round(num(r.hp, 100)), kg: num(r.kg, 100), type: str(r.type, 4), items: ids(r.items), achv: ids(r.achv), axes: r.axes && typeof r.axes === "object" ? { A: Math.round(num(r.axes.A, 100)), N: Math.round(num(r.axes.N, 100)), T: Math.round(num(r.axes.T, 100)), P: Math.round(num(r.axes.P, 100)) } : null });
         records = mine.concat((Array.isArray(list) ? list : []).filter(r => r && typeof r === "object").map(safe));
         recordsState = "ready";
       } catch (e) { recordsState = "error"; }
@@ -2786,7 +2787,7 @@ function showStart() {
     </div>
     <div class="sgrp">
     <label class="nick-row">닉네임 <input id="start-nick" maxlength="12" placeholder="결과 화면과 카드 이미지에 들어가요" value="${escapeHtml(loadNick())}"></label>
-    ${SHEET_API ? `<p class="note">끝까지 하면 점수·엔딩·챙긴 물건이 통계에 반영돼요. 닉네임은 내 결과 화면과 카드에만 쓰이고 다른 사람에게는 보이지 않아요.</p>` : ""}
+    ${SHEET_API ? `<p class="note">끝까지 하면 점수·엔딩·챙긴 물건·닉네임이 제작자에게 전송돼 통계에 쓰여요. 닉네임은 다른 플레이어에게 보이지 않아요. 실명·연락처는 적지 말아 주세요.</p>` : ""}
     <p class="msg" id="nick-msg" style="min-height:0"></p>
     </div>
     <div class="toggles">
@@ -4735,7 +4736,7 @@ function socialsHtml() {
       <a class="social-btn" href="https://www.youtube.com/@%EB%8B%B4%EB%B9%84?sub_confirmation=1" target="_blank" rel="noopener">${YT_ICON}구독하기</a>
       <a class="social-btn" href="https://www.instagram.com/0728_db/" target="_blank" rel="noopener">${IG_ICON}팔로우하기</a>
     </div>
-    <p class="credit">제작 · 담비, peaknicc · ${APP_VERSION} 시험판</p>
+    <p class="credit">제작 · 담비, peaknicc · ${APP_VERSION}</p>
   </div>`;
 }
 // ───────── 되감기: 그 장면 직전 상태로 돌아가 다시 고르기 ─────────
@@ -4911,11 +4912,12 @@ function badgesOf(itemScore) {
 const NICK_KEY = "survival-test-nick";
 function loadNick() { try { const n = cleanNick(localStorage.getItem(NICK_KEY)); return n.bad ? "" : n.text.trim(); } catch (e) { return ""; } }
 // 닉네임: 한글·영어·일본어·숫자·띄어쓰기만. 욕설·비하 표현이 들어 있으면 bad
-const NICK_BAD = ["씨발","씨바","씨팔","시팔","ㅅㅂ","ㅆㅂ","병신","ㅂㅅ","븅신","좆","좃","ㅈㄴ","지랄","ㅈㄹ","새끼","ㅅㄲ","섹스","ㅅㅅ","창녀","창년","느금","니미럴","엠창","애미","엿먹","꺼져","닥쳐","미친놈","미친년","썅","쌍년","쌍놈","걸레년","강간","야동","일베충","노알라","한남충","김치녀","된장녀","틀딱","맘충","급식충","짱깨","쪽바리","조센징","깜둥","메갈","카지노","fuck","fuk","shit","bitch","sex","dick","pussy","cunt","nigg","porn","asshole","bastard","slut","whore","rapist","raping","sibal","tlqkf","くそったれ","くそやろう","クソ","死ね","しね","ちんこ","まんこ","マンコ","セックス","ばか","バカ","馬鹿","きもい","キモい","시벌","씨벌","슈발","쉬발","씨부랄","시부랄","빙신","지럴","옘병","개놈","ㄴㄱㅁ","qudtls","딸딸이","후장","딜도","오나홀","성추행","윤간","수간","근친","육변기","한녀충","보슬아치","피싸개","꼴페미","퐁퐁남","전라디언","개쌍도","정박아","짱개","쪽빠리","똥남아","착짱죽짱","히틀러","홀로코스트","인종청소","난징대학살","관동대학살","가미카제","김정은만세","penis","vagina","hentai","faggot","chink","gook","hitler","nazi","ちんぽ","レイプ","ガイジ","보지","자지","시발","염병","성폭","씹","느개","느검","니엄마","느그엄","느그애","엄창","앰창","좇","개같","니애","뒤져","뒤진","죽어","쓰레기"];
+const NICK_BAD = ["씨발","씨바","씨팔","시팔","ㅅㅂ","ㅆㅂ","병신","ㅂㅅ","븅신","좆","좃","ㅈㄴ","지랄","ㅈㄹ","새끼","ㅅㄲ","섹스","ㅅㅅ","창녀","창년","느금","니미럴","엠창","애미","미친놈","미친년","썅","쌍년","쌍놈","걸레년","강간","야동","일베충","노알라","한남충","김치녀","된장녀","틀딱","맘충","급식충","짱깨","쪽바리","조센징","깜둥","카지노","fuck","shit","bitch","sex","dick","pussy","cunt","nigg","porn","asshole","bastard","slut","whore","raping","sibal","tlqkf","くそったれ","くそやろう","クソ","死ね","しね","ちんこ","まんこ","マンコ","セックス","きもい","キモい","시벌","씨벌","슈발","쉬발","씨부랄","시부랄","빙신","지럴","옘병","개놈","ㄴㄱㅁ","qudtls","딸딸이","후장","딜도","오나홀","성추행","윤간","근친","육변기","한녀충","보슬아치","피싸개","꼴페미","퐁퐁남","전라디언","개쌍도","정박아","짱개","쪽빠리","똥남아","착짱죽짱","히틀러","홀로코스트","인종청소","난징대학살","관동대학살","가미카제","김정은만세","penis","vagina","hentai","faggot","chink","gook","hitler","nazi","ちんぽ","レイプ","ガイジ","보지","자지","시발","염병","성폭","씹","느개","느검","니엄마","느그엄","느그애","앰창","좇","니애"];
 function cleanNick(v) {
   const text = String(v || "").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").slice(0, 12);
   const flat = text.toLowerCase().replace(/[\s0-9]/g, "");
-  return { text, bad: NICK_BAD.some(w => flat.includes(w)) };
+  const flat2 = flat.replace(/[ー々ㄱ-ㅎㅏ-ㅣ]/g, "");   // 끼워 넣은 기호·낱자를 뺀 것도 같이 봄 (시ー발, 시ㅡ발)
+  return { text, bad: NICK_BAD.some(w => flat.includes(w) || flat2.includes(w)) };
 }
 function saveNick(v) { try { localStorage.setItem(NICK_KEY, v); } catch (e) {} }
 function gradeOf(score) {
