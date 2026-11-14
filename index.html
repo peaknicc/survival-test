@@ -163,6 +163,8 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 @keyframes dissolve { from { opacity: 0; } to { opacity: 1; } }
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 1s ease, transform 1s ease; }
 .reveal.shown { opacity: 1; transform: none; }
+/* 결과 바로 아래의 다음 장면: 결과를 읽을 틈을 주고 천천히 떠오름 */
+.feed-block.done + .feed-block.reveal { transition-duration: 1.8s; transition-delay: .5s; }
 .scroll-hint { text-align: center; font-size: .85rem; color: var(--muted); opacity: .55; margin: 4px 0 0; animation: hintBob 1.8s ease-in-out 3; }
 @keyframes hintBob { 50% { transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) {
@@ -2719,7 +2721,7 @@ const revealIO = "IntersectionObserver" in window ? new IntersectionObserver(es 
   if (!e.isIntersecting) return;
   e.target.classList.add("shown"); revealIO.unobserve(e.target);
   const cb = revealCbs.get(e.target); if (cb) { revealCbs.delete(e.target); cb(); }
-}), { threshold: 0.12 }) : null;
+}), { threshold: 0, rootMargin: "0px 0px -48px 0px" }) : null;   // 화면 아래에서 48px만 올라와도 나타나기 시작 (긴 장면도 살짝 걸치면 보이게)
 function reveal(el, onShow) {
   el.classList.add("reveal");
   if (onShow) revealCbs.set(el, onShow);
@@ -4183,7 +4185,8 @@ function resolve(index, choice) {
     setNav({ game: true, back: true });
     startScene(index + 1);
   }
-  if (out) setTimeout(() => out.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  // 결과 칸을 화면 가운데로 (결과가 화면보다 길면 윗부분부터 읽게 위에 맞춤). 다음 장면은 아래에 살짝 걸쳐 보임
+  if (out) setTimeout(() => { const tall = out.getBoundingClientRect().height > innerHeight * 0.55; out.scrollIntoView({ behavior: "smooth", block: tall ? "start" : "center" }); }, 60);
   else window.scrollTo(0, 0);
   nudgeCheck();
 }
