@@ -500,7 +500,7 @@ details.sec > summary { scroll-margin-top: 12px; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 .toggle-row.locked { opacity: .6; cursor: default; border-style: dashed; }
 .res-main, .res-panel { display: grid; gap: 16px; }
-.res-main[hidden], .res-panel[hidden] { display: none; }
+.res-main[hidden], .res-panel[hidden], .share-img[hidden] { display: none; }
 .res-split { justify-content: center; font-size: .85rem; }
 .panel-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; display: flex; align-items: center; gap: 10px;
   margin: -6px -16px 0; padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
@@ -796,6 +796,21 @@ button.social-btn { font: inherit; font-weight: 700; cursor: pointer; }
 .bug-form textarea, .bug-form input[type="file"] { font: inherit; font-weight: 400; color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; width: 100%; }
 .bug-form textarea { min-height: 140px; resize: vertical; }
 .bug-form img { max-height: 240px; border-radius: 8px; border: 1px solid var(--line); justify-self: start; }
+/* 플레이 뒤 짧은 설문 */
+.survey { display: grid; gap: 12px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.sv-title { margin: 0; font-weight: 800; text-align: center; }
+.sv-title small, .sv-q small { font-weight: 400; color: var(--muted); }
+.sv-stars { display: flex; justify-content: center; gap: 4px; }
+.sv-star { font: inherit; font-size: 2rem; line-height: 1; width: 48px; height: 48px; color: var(--line); background: none; border: 0; padding: 0; cursor: pointer; }
+.sv-star.on { color: var(--accent); }
+.sv-more { display: grid; gap: 14px; }
+.sv-more[hidden] { display: none; }
+.sv-q { display: grid; gap: 6px; }
+.sv-q p { margin: 0; font-size: .9rem; font-weight: 700; }
+.sv-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sv-opt { font: inherit; font-size: .9rem; color: var(--fg); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+.sv-opt.on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.survey textarea { width: 100%; min-height: 72px; font: inherit; font-size: .9rem; font-weight: 400; color: var(--fg); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; resize: vertical; box-sizing: border-box; }
 </style>
 
 <header class="topbar">
@@ -878,7 +893,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.84";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.90";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2062,7 +2077,8 @@ const Sound = {
       this.master.gain.value = this.on ? 1 : 0;
       this.master.connect(this.ctx.destination);
     }
-    if (this.ctx.state === "suspended") this.ctx.resume();
+    // iOS는 전화·화면 잠금 뒤 "interrupted"가 되기도 함 → 돌고 있지 않으면 다시 깨움
+    if (this.ctx.state !== "running" && this.ctx.state !== "closed") { const r = this.ctx.resume(); if (r && r.catch) r.catch(() => {}); }
     return true;
   },
   // 실제 민방공 경보 기준 (게임에선 짧게)
@@ -2321,6 +2337,8 @@ const Sound = {
       o.start(t); o.stop(t + dur + 0.1);
       this.playing.push(o);
     });
+    // 울림(되먹임) 고리는 끝난 뒤 떼어 냄 — 안 떼면 사이렌을 틀 때마다 노드가 쌓임
+    setTimeout(() => { [env, delay, feedback, wet, filter].forEach(n => { try { n.disconnect(); } catch (e) {} }); }, (dur + 3) * 1000);
   },
   beep() {
     if (!this.on || !this.ensure()) return;
@@ -2425,7 +2443,7 @@ window.addEventListener("beforeunload", e => { if (navState.game) { e.preventDef
 // ───────── 생존자 명단 (db) ─────────
 // 저장·삭제는 소유자(노랑대갈)만. 다른 사람은 보기만 (publish 때 rules로도 막아 둠)
 // 소유자·조직 멤버만 저장할 수 있고, 로그인한 시청자는 통계를 볼 수만 있음
-const SHEET_API = "https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec";   // 구글 시트 웹 앱 주소 (Dev/github/설정.json)
+const SHEET_API = "https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec";   // 구글 시트 웹 앱 주소 (설정.json)
 let db = null, dbCanWrite = false, records = [], recordsState = "loading";
 async function initDb() {
   try {
@@ -2490,7 +2508,7 @@ function statsInner() {
   const n = records.length;
   const avg = list => list.length ? Math.round(list.reduce((s, r) => s + (r.score || 0), 0) / list.length) : "-";
   const byGroup = Object.keys(GROUPS).map(g => ({ g, list: records.filter(r => r.group === g) }));
-  const endCount = {}; records.forEach(r => { endCount[r.ending] = (endCount[r.ending] || 0) + 1; });
+  const endCount = Object.create(null); records.forEach(r => { endCount[r.ending] = (endCount[r.ending] || 0) + 1; });
   const itemCount = {}; records.forEach(r => new Set((r.items || []).filter(id => Object.prototype.hasOwnProperty.call(ITEM_BY_ID, id)).map(baseOf)).forEach(id => { itemCount[id] = (itemCount[id] || 0) + 1; }));
   const topItems = Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const ends = ENDING_ORDER.filter(k => endCount[k]).sort((a, b) => endCount[b] - endCount[a]);
@@ -2570,11 +2588,12 @@ function typeEntryBody(h) {
 }
 // list: 유형 기록(오래된 것부터), firstNo: 첫 칸의 회차 번호, openNewest: 가장 최근 것을 펼쳐 둘지
 function typeHistHtml(list, openNewest) {
+  list = (Array.isArray(list) ? list : []).filter(h => h && typeof h === "object");
   return `<div class="type-past">${list.map((h, i) => ({ h, n: i + 1 })).reverse().map(({ h, n }, k) => { const T = TYPES[h.code], d = h.t ? new Date(h.t) : null;
     return `<details class="sec"${openNewest && k === 0 ? " open" : ""}><summary><span>${n}회차 · ${T ? T.emo + " " + T.name : "예전 유형"}</span><span class="sec-sub">${ENDINGS[h.ending] ? ENDINGS[h.ending].name + " · " : ""}${h.score}%${d ? " · " + (d.getMonth() + 1) + "/" + d.getDate() : ""}</span></summary>${typeEntryBody(h)}</details>`; }).join("")}</div>`;
 }
 function showTypesPage() {
-  stopTimer();
+  stopTimer(); Sound.stopSiren();
   const list = loadJson(THIST_KEY, []);
   app.innerHTML = `
     <section class="res-panel">
@@ -2596,7 +2615,8 @@ function shrinkImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
-      const make = (max, q) => { const k = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q); };
+      if (!im.width || !im.height) { URL.revokeObjectURL(url); reject(new Error("img")); return; }
+      const make = (max, q) => { const k = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k)); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q); };
       let d = make(720, .6); if (d.length > 240000) d = make(560, .45); if (d.length > 240000) d = make(420, .4); if (d.length > 240000) d = make(300, .3);
       URL.revokeObjectURL(url); if (d.length > 240000) reject(new Error("big")); else resolve(d);
     };
@@ -2605,6 +2625,7 @@ function shrinkImage(file) {
   });
 }
 function showBugPage(back) {
+  Sound.stopSiren();   // 경보 소리를 튼 채 넘어오면 멈춤
   stopTimer();
   app.innerHTML = `
     <section class="res-panel">
@@ -2625,8 +2646,10 @@ function showBugPage(back) {
   document.getElementById("bug-file").addEventListener("change", async e => {
     const f = e.target.files && e.target.files[0]; img = ""; prev.hidden = true; msg.className = "msg"; msg.textContent = "";
     if (!f) return;
+    btn.disabled = true;   // 그림을 줄이는 동안 보내면 캡처가 빠진 채 감
     try { img = await shrinkImage(f); prev.src = img; prev.hidden = false; }
     catch (err) { msg.textContent = "이 그림은 첨부할 수 없어요. 다른 캡처를 골라 주세요."; e.target.value = ""; }
+    btn.disabled = false;
   });
   btn.addEventListener("click", async () => {
     const text = document.getElementById("bug-text").value.trim();
@@ -2651,6 +2674,7 @@ function showBugPage(back) {
 
 // 첫 화면에서 여는 통계·명단 (결과 화면의 '통계·명단'과 같은 모양)
 function showStatsPage() {
+  Sound.stopSiren();
   stopTimer();
   app.innerHTML = `
     <section class="res-panel">
@@ -3083,6 +3107,7 @@ function addUnits(bundleId, n) {
 }
 function rotateItem(id) {
   const p = placed.find(q => q.id === id);
+  if (!p) return "";
   const w = p.h, h = p.w;
   if (canPlace(p.x, p.y, w, h, id)) { p.w = w; p.h = h; return ""; }
   const spot = findSpot(w, h, id);
@@ -3105,6 +3130,7 @@ function onDragStart(e) {
   if (e.button > 0) return;                 // 마우스 오른쪽 버튼 무시
   e.preventDefault();                       // 글자 선택·길게 누르기 메뉴 방지
   if (drag) { stopDrag(); clearPreview(); document.querySelectorAll(".dragging").forEach(x => x.classList.remove("dragging")); }   // 복사본 그림이 화면에 남지 않게
+  bundlePick = null;                        // 묶음 선택창이 열린 채 가방을 만지면 닫음 (뒤따르는 click이 안내 글을 지우지 않게)
   const btn = e.currentTarget, id = btn.dataset.rot, p = placed.find(q => q.id === id);
   const c = cellFromPoint(e.clientX, e.clientY), r = btn.getBoundingClientRect();
   drag = { id, btn, startX: e.clientX, startY: e.clientY, offX: c.x - p.x, offY: c.y - p.y,
@@ -3121,7 +3147,11 @@ function stopDrag() {
   const d = drag; drag = null;
   return d;
 }
-function onDragCancel() { stopDrag(); if (timerId) rerender(() => renderPack("")); }
+function onDragCancel(e) {
+  if (drag && e && e.pointerId != null && e.pointerId !== drag.pid) return;   // 다른 손가락이 취소된 건 무시
+  stopDrag();
+  if (timerId) rerender(() => renderPack(""));
+}
 function onDragMove(e) {
   if (!drag || (e.pointerId != null && e.pointerId !== drag.pid)) return;   // 끌고 있는 그 손가락만 따라감
   if (!timerId) { stopDrag(); return; }   // 가방 싸기가 끝났으면 무시
@@ -3139,7 +3169,9 @@ function onDragMove(e) {
   }
   drag.ghost.style.left = (e.clientX - drag.grabX) + "px";
   drag.ghost.style.top = (e.clientY - drag.grabY) + "px";
-  const p = placed.find(q => q.id === drag.id), t = dragTarget(e);
+  const p = placed.find(q => q.id === drag.id);
+  if (!p) { stopDrag(); clearPreview(); return; }   // 끄는 도중 다른 손가락으로 그 물건을 뺀 경우
+  const t = dragTarget(e);
   const ok = canPlace(t.x, t.y, p.w, p.h, p.id);
   clearPreview();
   for (let dy = 0; dy < p.h; dy++) for (let dx = 0; dx < p.w; dx++) {
@@ -3158,6 +3190,7 @@ function onDragEnd(e) {
     return;
   }
   const p = placed.find(q => q.id === d.id);
+  if (!p) { rerender(() => renderPack("")); return; }
   const ok = canPlace(t.x, t.y, p.w, p.h, p.id);
   if (ok) { p.x = t.x; p.y = t.y; }
   rerender(() => renderPack(ok ? "" : "거기엔 안 들어가요."));
@@ -3371,8 +3404,8 @@ const LOSE_TEXT = [
 ];
 const pickOne = a => a[Math.floor(Math.random() * a.length)];
 function enterScene(s) {
-  const base = enterSceneBase(s), batt = s === scenes[0] ? null : batteryCheck(s), gift = maskGiftCheck(s), bf = butterflyCheck(s);
-  const notes = [base, batt, gift, bf, s === scenes[0] || (gift && gift.up) ? null : randomEvent(s)].filter(Boolean);   // 방금 받은 물건을 바로 잃지 않게
+  const base = enterSceneBase(s), batt = s === scenes[0] || hp <= 0 ? null : batteryCheck(s), gift = hp <= 0 ? null : maskGiftCheck(s), bf = hp <= 0 ? null : butterflyCheck(s);
+  const notes = [base, batt, gift, bf, s === scenes[0] || hp <= 0 || (gift && gift.up) ? null : randomEvent(s)].filter(Boolean);   // 방금 받은 물건을 바로 잃지 않게
   if (!notes.length) return null;
   return { up: notes.every(n => n.up), img: (notes.find(n => n.img) || {}).img, text: notes.map(n => n.text).join("<br>") };
 }
@@ -3536,6 +3569,7 @@ function startScene(index) {
       const sec = document.createElement("section"); sec.className = "feed-block mini-block";
       feed.appendChild(sec);
       miniInline(sec, ev.kind, ev, onDone, index);
+      const fm = document.getElementById("feed-meters"); if (fm) fm.innerHTML = metersHtml("scene");
       setNav({ game: true, back: true });
     } else runMini(ev.kind, ev, onDone);
     return;
@@ -3557,8 +3591,8 @@ function beginScene(index) {
   // 결과를 읽는 동안 아래 장면 시간이 흐르지 않게: 선택지가 화면 아래쪽 85% 안에 들어오면 시작
   const check = () => {
     if (document.getElementById("live") !== live) { removeEventListener("scroll", check); return; }
-    const o = live.querySelector(".options"); if (!o) return;
-    if (o.getBoundingClientRect().top < innerHeight * 0.85) { removeEventListener("scroll", check); go(); }
+    const o = live.querySelector(".options"); if (!o) { removeEventListener("scroll", check); return; }
+    if (o.getBoundingClientRect().top < innerHeight * 0.85 || innerHeight + scrollY >= document.documentElement.scrollHeight - 4) { removeEventListener("scroll", check); go(); }
   };
   addEventListener("scroll", check, { passive: true });
   setTimeout(check, 800);
@@ -3646,7 +3680,7 @@ function renderScene(index) {
   }));
   live.querySelectorAll("[data-combo]").forEach(b => b.addEventListener("click", () => {
     const c = s.combos[Number(b.dataset.combo)], id = comboItem(c);
-    if (!id) return;
+    if (!id || results[index]) return;
     const ch = comboChoice(c, id);
     if (ch.useId) consume(ch.useId);
     resolve(index, ch);
@@ -3720,6 +3754,7 @@ function takeLoot(index, id) {
   const msg = addItem(id);
   if (msg) { pickerOpen = true; dropMode = true; pendingUse = null; toast(`${msg} 아래 가방에서 버릴 물건을 골라 자리를 만든 뒤 다시 챙겨 보세요.`, false); }
   else {
+    dropMode = false;   // 자리가 생겨 챙겼으면 버리기 모드는 끝 (안 끄면 다음에 누른 물건이 버려짐)
     if (it.uses) uses[id] = it.uses;
     lootTaken.add(lootKey(s, id));
     toast(`${jo(nameOf(id), "을", "를")} 가방에 챙겼다.`, true);
@@ -3857,10 +3892,12 @@ function miniInline(parent, kind, ev, done, idx) {
   box.innerHTML = miniIntroInner(kind, ev, "mini-go-" + idx);
   parent.appendChild(box);
   reveal(box);
-  box.querySelector("button").addEventListener("click", () => playMini(kind, res => {
+  let finished = false;
+  box.querySelector("button").addEventListener("click", e => { e.currentTarget.disabled = true; e.currentTarget.blur(); playMini(kind, res => {
+    if (finished) return; finished = true;
     box.innerHTML = `<p class="mini-tag"><span class="ic ic-game"></span>${MINI[kind].title}</p><p class="note">${res.log || ""}</p>`;
     done(res);
-  }));
+  }); }, { once: true });
   return box;
 }
 function showMiniResult(res, done) {
@@ -3983,7 +4020,7 @@ const MINI = {
         const w = { el, x, y, held: 0, holding: false, born: performance.now() };
         el.addEventListener("pointerdown", e => { e.preventDefault(); w.holding = true; el.classList.add("pressed"); try { el.setPointerCapture(e.pointerId); } catch (err) {} });
         const up = () => { w.holding = false; el.classList.remove("pressed"); };
-        el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+        el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);
         el.addEventListener("contextmenu", e => e.preventDefault());
         area.appendChild(el); wounds.push(w);
       };
@@ -4003,7 +4040,7 @@ const MINI = {
         else end({ ok: false, hp: -12, big: `${done}/${N}`, text: "피가 쉽게 멈추지 않았다. 한참 뒤에야 겨우 멎었다. 머리가 핑 돈다.", log: `🩹 지혈 ${done}/${N} ❌`, tip });
       };
       const iv = setInterval(() => {
-        const now = performance.now(), dt = (now - last) / 1000; last = now;
+        const now = performance.now(), dt = Math.min(0.2, (now - last) / 1000); last = now;   // 화면이 가려졌다 돌아와도 한 번에 크게 뛰지 않게
         const left = LIMIT - (now - t0) / 1000;
         leftEl.textContent = Math.max(0, left).toFixed(1);
         if (left <= 0) return finish();
@@ -4132,8 +4169,10 @@ const MINI = {
       const tip = "전쟁·재난 때는 KBS가 재난방송을 맡아요. 휴대폰이 끊겨도 건전지 라디오로 KBS 1라디오(서울 FM 97.3 / AM 711)를 들을 수 있어요. 출처 없는 소문보다 공식 방송을 믿어요.";
       let tuned = false, t0 = performance.now();
       let iv = null, moved = false;   // 🔥 하드: 다이얼을 움직이면 숫자가 가려짐
-      const finish = res => { clearInterval(iv); end(res); };
+      let ended = false;
+      const finish = res => { if (ended) return; ended = true; clearInterval(iv); dial.disabled = true; box.querySelectorAll("[data-d]").forEach(b => b.disabled = true); end(res); };
       const update = () => {
+        if (ended) return;
         const v = Number(dial.value), diff = Math.abs(v - TARGET);
         freqEl.textContent = hardMode && diff && moved ? "FM ??.?" : `FM ${(v / 10).toFixed(1)}`;
         if (diff === 0) {
@@ -4184,8 +4223,10 @@ const MINI = {
       const door = document.getElementById("door"), boxEl = document.getElementById("dr-box"), msg = document.getElementById("door-msg"), fill = document.getElementById("hiss-fill");
       const leftEl = document.getElementById("door-left"), missEl = document.getElementById("door-miss");
       const tip = "실제로는 ① 비상통화장치로 승무원에게 먼저 알리고 ② 안내가 있으면 출입문 옆·좌석 아래 비상 개폐 장치 덮개를 열어 손잡이를 당긴 뒤 ③ 공기 빠지는 소리가 멈추면 문을 양손으로 밀어요. 터널에선 반대편 선로로 오는 열차와 바닥의 전선을 조심하고 유도등을 따라가요.";
+      let ended = false;
       const finish = ok => {
-        clearInterval(iv);
+        if (ended) return; ended = true;
+        clearInterval(iv); door.disabled = true; boxEl.disabled = true;
         if (ok) end({ ok: true, hp: 0, big: mistakes ? `실수 ${mistakes}번` : "실수 없이", text: "문이 스르륵 열렸다. 사람들과 함께 어두운 선로로 조심조심 내려섰다.", log: `🚇 비상문을 열었다${mistakes ? ` (실수 ${mistakes}번)` : " ✅"}`, tip });
         else end({ ok: false, hp: -6, big: "", text: "문이 꿈쩍도 하지 않았다. 허둥대는 사이 옆 사람이 대신 열었다.", log: "🚇 비상문 열기 실패 ❌", tip });
       };
@@ -4282,14 +4323,14 @@ const MINI = {
         else if (hardMode && round === 9) { void box.offsetWidth; box.classList.add("sg-shake1"); }   // 하드 9번: 한 번 살짝   // 첫 판: 화면 흔들림
         const fillEl = document.getElementById("sg-fill");
         let picked = false;
-        const pick = c => {
+        const pick = (c, idx) => {
           if (picked) return; picked = true; clearInterval(iv);
           if (c && c.real) right++; else lastWhy = c ? c.why : "머뭇거리다 놓쳤다.";
           box.querySelector(".sg-grid").classList.add("revealed");
-          box.querySelectorAll("[data-c]").forEach((b, i) => { b.disabled = true; if (cards[i].real) b.classList.add("right"); else if (cards[i] === c) b.classList.add("wrong"); });
+          box.querySelectorAll("[data-c]").forEach((b, i) => { b.disabled = true; if (cards[i].real) b.classList.add("right"); else if (i === idx) b.classList.add("wrong"); });
           setTimeout(() => { if (!stopped) next(); }, hardMode ? 180 : imageMode ? 1500 : 700);
         };
-        box.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => pick(cards[Number(b.dataset.c)])));
+        box.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => pick(cards[Number(b.dataset.c)], Number(b.dataset.c))));
         let lastSec = -1;   // 1초마다 숫자 갱신 + 삑
         t0 = performance.now();
         iv = setInterval(() => {
@@ -4362,7 +4403,7 @@ function applyChoice(index, choice) {
 
 function resolve(index, choice) {
   stopUrgent();
-  if (!choice.miniDone && results[index]) return;   // 이미 고른 장면 (시간 초과와 누르기가 겹쳐도 한 번만)
+  if (results[index]) return;   // 이미 고른 장면 (시간 초과와 누르기가 겹쳐도 한 번만)
   const miniKind = choice.mini || (choice.achv === "cpr" ? "cpr" : null);
   if (miniKind && !choice.miniDone) {
     const lv = document.getElementById("live");
@@ -4723,10 +4764,10 @@ async function makeShareCard(d) {
 
   // 칸 3개: 생존율 · 내 유형 · (엔딩 희귀도 / 하드 칭호 / 엔딩 도감)
   const cy = 660, ch = 330, gap = 20, cw = (W - P * 2 - gap * 2) / 3;
-  const third = d.endRate != null
-    ? { label: "이 엔딩을 본 사람", main: `${d.endRate}%`, big: true, sub: d.endRate <= 10 ? "희귀 엔딩!" : `엔딩 ${endNo}/${ENDING_ORDER.length}` }
-    : d.hardTitle
+  const third = d.hardTitle
     ? { label: "하드 칭호", main: d.hardTitle.split(" ")[0], sub: d.hardTitle.split(" ").slice(1).join(" ") }
+    : d.endRate != null
+    ? { label: "이 엔딩을 본 사람", main: `${d.endRate}%`, big: true, sub: d.endRate <= 10 ? "희귀 엔딩!" : `엔딩 ${endNo}/${ENDING_ORDER.length}` }
     : { label: "엔딩 도감", main: `${d.found}/${ENDING_ORDER.length}`, big: true, sub: "모은 엔딩" };
   [
     { label: "생존율", main: `${d.score}%`, big: true, sub: d.grade },
@@ -4833,7 +4874,7 @@ const ACHV = [
   { id: "lowscore", name: "🌱 살아라 그대는 그뭐냐 그거다", how: "생존율 30% 미만", hint: "생존율이 바닥까지 떨어져 본다면…" },
   { id: "elite",    name: "🏆 너는 계획이 다 있구나",how: "생존율 80% 이상 · 🔥 하드 모드 해금",    hint: "생존율 80%를 넘긴다면…", unlock: "hard" },
   { id: "cpr",      name: "🫀 깨어나세요 용사여",       how: "심정지 장면에서 가슴압박",              hint: "쓰러진 사람의 심장을 다시 뛰게 한다면…" },
-  { id: "neighbor", name: "🤝 마더 테레사",     how: "한 번도 외면하지 않고 생존",            hint: "한 번도 외면하지 않는다면…" },
+  { id: "neighbor", name: "🤝 마더 테레사",     how: "세 번 이상 돕고, 한 번도 외면하지 않고 생존",            hint: "한 번도 외면하지 않는다면…" },
   { id: "solo",     name: "🚶 나만 아니면 돼",       how: "돕지 않는 선택 2번 이상 하고 생존",     hint: "나부터 살아야 한다면…" },
   { id: "bag",      name: "🎒 도라에몽",    how: "준비물 20/20",                         hint: "필수품을 하나도 빠뜨리지 않는다면…" },
   { id: "macgyver", name: "🧰 이게 되네?", how: "물건을 4번 이상 상황에 맞게 사용",       hint: "가방 속 물건을 잘 쓴다면…" },
@@ -4862,12 +4903,21 @@ function isUnlocked(key) {
   return loadJson(ACHV_KEY, []).includes(a.id);
 }
 const ACHV_KEY = "survival-test-achv", PROG_KEY = "survival-test-progress", MINI_KEY = "survival-test-minis";   // MINI_KEY: 성공한 미니게임 (예: "fire:h")
-function loadJson(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+function loadJson(k, d) {
+  try {
+    const v = JSON.parse(localStorage.getItem(k));
+    if (!v) return d;
+    if (Array.isArray(d)) return Array.isArray(v) ? v : d;                       // 배열이어야 하는데 다른 모양이면 버림
+    if (d && typeof d === "object" && (typeof v !== "object" || Array.isArray(v))) return d;
+    return v;
+  } catch (e) { return d; }
+}
 function saveJson(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 // 이번 판에서 얻은 업적 판정. 테스트 모드면 저장하지 않음
 function checkAchievements(ctx) {
   const alive = hp > 0;
   const prog = loadJson(PROG_KEY, { locs: [], groups: [] });
+  ["locs", "groups", "routes"].forEach(k => { if (!Array.isArray(prog[k])) prog[k] = []; });   // 예전 버전 기록에 없던 칸
   if (!testMode) {
     if (alive && !prog.locs.includes(startLoc)) prog.locs.push(startLoc);
     if (!prog.groups.includes(group)) prog.groups.push(group);
@@ -4886,7 +4936,7 @@ function checkAchievements(ctx) {
     hard: hardMode && alive && ctx.score >= 70,
     clutch: alive && hp <= 15,
     lowscore: ctx.score < 30,
-    elite: ctx.score >= 80,
+    elite: alive && ctx.score >= 80,
     perfect: ctx.ending === "perfect",
     oneshot: !rewound && ctx.score >= 90,
     locs: prog.locs.length >= 3,
@@ -4988,7 +5038,8 @@ function loadNick() { try { const n = cleanNick(localStorage.getItem(NICK_KEY));
 // 닉네임: 한글·영어·일본어·숫자·띄어쓰기만. 욕설·비하 표현이 들어 있으면 bad
 const NICK_BAD = ["씨발","씨바","씨팔","시팔","ㅅㅂ","ㅆㅂ","병신","ㅂㅅ","븅신","좆","좃","ㅈㄴ","지랄","ㅈㄹ","새끼","ㅅㄲ","섹스","ㅅㅅ","창녀","창년","느금","니미럴","엠창","애미","미친놈","미친년","썅","쌍년","쌍놈","걸레년","강간","야동","일베충","노알라","한남충","김치녀","된장녀","틀딱","맘충","급식충","짱깨","쪽바리","조센징","깜둥","카지노","fuck","shit","bitch","sex","dick","pussy","cunt","nigg","porn","asshole","bastard","slut","whore","raping","sibal","tlqkf","くそったれ","くそやろう","クソ","死ね","しね","ちんこ","まんこ","マンコ","セックス","きもい","キモい","시벌","씨벌","슈발","쉬발","씨부랄","시부랄","빙신","지럴","옘병","개놈","ㄴㄱㅁ","qudtls","딸딸이","후장","딜도","오나홀","성추행","윤간","근친","육변기","한녀충","보슬아치","피싸개","꼴페미","퐁퐁남","전라디언","개쌍도","정박아","짱개","쪽빠리","똥남아","착짱죽짱","히틀러","홀로코스트","인종청소","난징대학살","관동대학살","가미카제","김정은만세","penis","vagina","hentai","faggot","chink","gook","hitler","nazi","ちんぽ","レイプ","ガイジ","보지","자지","시발","염병","성폭","씹","느개","느검","니엄마","느그엄","느그애","앰창","좇","니애"];
 function cleanNick(v) {
-  const text = String(v || "").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").replace(/^ /, "").slice(0, 12);
+  let raw = String(v || ""); if (raw.normalize) raw = raw.normalize("NFC");   // 조합형 한글 → 완성형 (시트 쪽과 같게)
+  const text = raw.replace(/\s/g, " ").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").replace(/^ /, "").slice(0, 12);
   const flat = text.toLowerCase().replace(/[\s0-9]/g, "");
   const flat2 = flat.replace(/[ー々ㄱ-ㅎㅏ-ㅣ]/g, "");   // 끼워 넣은 기호·낱자를 뺀 것도 같이 봄 (시ー발, 시ㅡ발)
   return { text, bad: NICK_BAD.some(w => flat.includes(w) || flat2.includes(w)) };
@@ -5063,8 +5114,8 @@ function showResult() {
 
   const essentials = Object.values(locEssentials);
   const itemRows = essentials.map(i => {
-    const haveCat = startIdsAll.some(id => ITEM_BY_ID[id].cat === i.cat);
     const many = effPts(i) > i.pts;   // 예: 생수는 2병 이상이 기준
+    const haveCat = (catCount[i.cat] || 0) >= (many ? 2 : 1);   // 점수 계산과 같은 기준
     return `<li><span>${i.emo} ${many ? i.name.replace("1병", "2병 이상") : i.name} · ${i.kg}kg${many ? "씩" : ""}<span class="why">${i.why}</span></span>
       <span class="pill ${haveCat ? "good" : "bad"}">${haveCat ? "챙김" : "놓침"}</span></li>`;
   }).join("");
@@ -5094,7 +5145,7 @@ function showResult() {
     const missing = best.item && !hadForScene(best.item);
     return `
       <li class="fb"><details>
-        <summary class="fb-top"><span class="stage">${s.stage}</span><span class="pill ${level[0]}">${level[1]} · ${r.pts}/${best.p}</span><small class="fb-sum">▶ ${r.label}</small></summary>
+        <summary class="fb-top"><span class="stage">${s.stage}</span><span class="pill ${level[0]}">${level[1]} · ${r.pts}/${Math.max(best.p, r.pts)}</span><small class="fb-sum">▶ ${r.label}</small></summary>
         <p class="note">${s.story}</p>
         ${miniLog[i] ? `<p class="mini-log">🎮 ${miniLog[i]}</p>` : ""}
         <p><span class="label">내 선택</span>${r.label}${r.penalty ? ` <small class="note">(엉뚱한 물건 꺼냄 −${r.penalty})</small>` : ""}</p>
@@ -5112,6 +5163,7 @@ function showResult() {
   };
 
   // GitHub판: 끝까지 한 판은 자동으로 통계·명단에 남김 (테스트 도구로 한 판은 빼고, 한 판에 한 번만)
+  if (SHEET_API && recordsState === "error") { recordsState = "loading"; initDb(); }   // 처음에 못 불러왔으면 다시 시도
   if (db && db.remote && !testMode && !forcedEnding && !savedThisRun) {
     savedThisRun = true;
     const rec = { ...record, name: loadNick().trim().slice(0, 12) };
@@ -5121,7 +5173,7 @@ function showResult() {
 
   app.innerHTML = `
     <div id="res-main" class="res-main">
-    <img id="share-img" class="share-img" alt="내 생존 테스트 결과 카드">
+    <img id="share-img" class="share-img" alt="내 생존 테스트 결과 카드" hidden>
     <div class="share-btns">
       <button class="btn" id="save-card"><span class="ic ic-down"></span>카드 저장</button>
       <button class="btn ghost" id="copy-share"><span class="ic ic-link"></span>링크 복사</button>
@@ -5168,6 +5220,7 @@ function showResult() {
       <button class="tile" type="button" data-panel="sources"><span class="t-name">출처</span><span class="t-sub">${usedSources.length}개</span></button>
       <button class="tile${flags.evade ? " warn" : ""}" type="button" data-panel="law"><span class="t-name">법 안내</span><span class="t-sub">${flags.evade ? "꼭 보기" : "알아 두기"}</span></button>
     </div>
+    ${surveyHtml()}
     <button class="btn res-home" id="res-home">⌂ 처음으로</button>
     ${bugBtnHtml()}
     ${socialsHtml()}
@@ -5262,19 +5315,21 @@ function showResult() {
 
   if (testMode) document.getElementById("back-tools").addEventListener("click", showTools);
   // 결과 카드 이미지 만들기 → 미리보기
-  let cardBlob = null, dl = null;
+  let cardBlob = null, dl = null, cardFailed = false;
   const note = document.getElementById("img-note"), copyMsg = document.getElementById("copy-msg");
   const endRate = recordsState === "ready" && records.length >= 5 ? Math.round(records.filter(r => r.ending === ending).length / records.length * 100) : null;   // 이 엔딩을 본 사람 비율 (명단 5명 이상일 때)
   const strongAxis = (() => { const a = AXES.map(x => ({ x, v: typePct[x.key] })).sort((p, q) => Math.abs(q.v - 50) - Math.abs(p.v - 50))[0]; const side = a.v >= 50 ? a.x.key : a.x.other; const N = AXIS_NAME[side] || {}; return { emo: N["이모지"] || "", name: N["이름"] || side, pct: a.v >= 50 ? a.v : 100 - a.v }; })();
   const cardData = { endRate, axis: strongAxis, hard: hardMode, hardTitle, typeKey, score, grade: grade.name, ending, found: found.length, items: startIdsAll, kg, hp, choiceScore, itemScore, hpScore, deduct, type: T, nick, master };
   const drawCard = () => makeShareCard(cardData)
     .then(async canvas => {
-      document.getElementById("share-img").src = canvas.toDataURL("image/png");
+      const img = document.getElementById("share-img");
+      img.src = canvas.toDataURL("image/png"); img.hidden = false;
       cardBlob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      cardFailed = false;
       dl = window.claude && window.claude.use ? await window.claude.use("downloads") : null;
       note.textContent = ""; note.hidden = true;
     })
-    .catch(() => { note.textContent = "결과 카드를 만들지 못했어요."; });
+    .catch(() => { cardFailed = true; note.hidden = false; note.textContent = "결과 카드를 만들지 못했어요. '카드 저장'을 누르면 다시 만들어 봐요."; });
   drawCard();
   // 시작할 때 정한 닉네임을 명단 저장 칸에도 채움
   const guestName = document.getElementById("guest-name");
@@ -5283,14 +5338,27 @@ function showResult() {
   // 링크만 복사 (클릭하는 순간 바로 실행해야 브라우저가 허락함)
   function copyLink() {
     const urlBox = document.getElementById("share-url");
-    const fallback = () => { urlBox.hidden = false; urlBox.focus(); urlBox.select(); copyMsg.textContent = "링크를 선택해 뒀어요. 길게 눌러 복사하세요."; };
+    const fallback = () => {
+      urlBox.hidden = false; urlBox.focus(); urlBox.select();
+      let ok = false; try { urlBox.setSelectionRange(0, 999); ok = document.execCommand("copy"); } catch (e) {}
+      if (ok) { urlBox.hidden = true; copyMsg.textContent = "링크를 복사했어요!"; return; }
+      copyMsg.textContent = "아래 링크를 길게 눌러 복사하세요.";
+      try { urlBox.scrollIntoView({ block: "center" }); } catch (e) {}
+    };
     try { navigator.clipboard.writeText(ARTIFACT_URL).then(() => { copyMsg.textContent = "링크를 복사했어요!"; }, fallback); }
     catch (e) { fallback(); }
   }
   // 이미지 저장 (확인 창이 뜸). 저장 기능이 없는 화면이면 길게 눌러 저장하도록 안내
   async function saveCard() {
     note.hidden = false;
-    if (!cardBlob) { note.textContent = "결과 카드를 아직 만드는 중이에요. 잠시 뒤 다시 눌러 주세요."; return false; }
+    if (!cardBlob && document.getElementById("share-img").src && !cardFailed) {   // 그림은 떴는데 파일로만 못 바꾼 경우
+      note.textContent = "위 이미지를 길게 눌러(또는 우클릭) 저장해 주세요."; return false;
+    }
+    if (!cardBlob) {
+      note.textContent = cardFailed ? "결과 카드를 다시 만드는 중이에요. 잠시 뒤 다시 눌러 주세요." : "결과 카드를 아직 만드는 중이에요. 잠시 뒤 다시 눌러 주세요.";
+      if (cardFailed) { cardFailed = false; drawCard(); }
+      return false;
+    }
     if (!dl) {
       const name = `생존테스트_${score}.png`;
       try {
@@ -5298,6 +5366,9 @@ function showResult() {
         if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) {
           try { await navigator.share({ files: [file] }); note.textContent = ""; return false; }
           catch (err) { if (err && err.name === "AbortError") { note.textContent = "이미지 저장을 취소했어요."; return false; } }
+        }
+        if (/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|DaumApps|; wv\)/i.test(navigator.userAgent)) {
+          note.textContent = "이 앱 안에서는 바로 저장이 안 돼요. 위 이미지를 길게 눌러 저장해 주세요."; return false;
         }
         const link = document.createElement("a"), href = URL.createObjectURL(cardBlob);
         link.href = href; link.download = name; document.body.appendChild(link); link.click(); link.remove();
@@ -5330,6 +5401,7 @@ function showResult() {
   app.querySelectorAll(".type-now .axis4d").forEach(d => d.addEventListener("toggle", () => d.closest(".type-now").classList.remove("axis-hint")));
   lastRun = [ROUTE_LABEL[route || "shelter"], ending, score + "%", "체력 " + hp].join(" · ");
   app.querySelectorAll("[data-bug]").forEach(b => b.addEventListener("click", () => showBugPage(() => showResult())));
+  bindSurvey({ score, ending, type: typeKey });
   app.querySelectorAll("[data-rewind]").forEach(b => b.addEventListener("click", () => rewindTo(Number(b.dataset.rewind))));
   // 아이콘 타일 → 그 내용만 한 화면으로. '← 결과로'로 돌아오면 보던 위치로
   let mainScroll = 0;
@@ -5356,6 +5428,59 @@ function showResult() {
 document.getElementById("brand-img").src = AVATAR_SRC;
 showStart();
 initDb();
+// ───────── 플레이 뒤 짧은 설문 (GitHub판만 · 기기마다 한 번 · 안 해도 됨) ─────────
+// 결과 화면 아래에 별점만 먼저 보이고, 별을 누르면 나머지 질문이 펼쳐짐. 답은 구글 시트 '설문' 탭에 한 줄.
+const SURVEY_KEY = "survival-test-survey";
+const SURVEY_Q = [
+  { k: "len",   q: "플레이 시간은 어땠나요?",   o: [["short", "짧았다"], ["ok", "적당했다"], ["long", "길었다"]] },
+  { k: "hard",  q: "가장 어려웠던 곳은?",       o: [["pack", "가방 싸기"], ["choice", "선택지"], ["mini", "미니게임"], ["none", "없었다"]] },
+  { k: "best",  q: "가장 기억에 남는 것은?",    o: [["pack", "가방 싸기"], ["story", "장면 이야기"], ["mini", "미니게임"], ["result", "결과·내 유형"]] },
+  { k: "learn", q: "새로 알게 된 게 있었나요?", o: [["much", "많았다"], ["some", "조금 있었다"], ["none", "없었다"]] },
+  { k: "again", q: "친구에게 권하고 싶나요?",   o: [["yes", "네"], ["maybe", "글쎄요"], ["no", "아니요"]] },
+  { k: "replay", q: "다른 선택으로 또 해 보고 싶나요?", o: [["yes", "네"], ["maybe", "글쎄요"], ["no", "아니요"]] }
+];
+function surveyDone() { try { return !!localStorage.getItem(SURVEY_KEY); } catch (e) { return false; } }
+function surveyHtml() {
+  if (!bugApi() || testMode || surveyDone()) return "";
+  return `<section class="survey" id="survey">
+      <p class="sv-title">이 게임 어땠나요? <small>30초 · 안 해도 돼요</small></p>
+      <div class="sv-stars" role="group" aria-label="재미 별점">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="sv-star" data-star="${n}" aria-label="별 ${n}개">★</button>`).join("")}</div>
+      <div class="sv-more" id="sv-more" hidden>
+        ${SURVEY_Q.map(x => `<div class="sv-q"><p>${x.q}</p><div class="sv-opts">${x.o.map(([v, t]) => `<button type="button" class="sv-opt" data-q="${x.k}" data-v="${v}">${t}</button>`).join("")}</div></div>`).join("")}
+        <label class="sv-q"><p>한마디 <small>(선택)</small></p><textarea id="sv-text" maxlength="200" placeholder="좋았던 점, 아쉬운 점, 넣었으면 하는 것"></textarea></label>
+        <button class="btn" type="button" id="sv-send">보내기</button>
+        <span class="msg" id="sv-msg"></span>
+      </div>
+    </section>`;
+}
+// ctx: 이번 판 요약 { score, ending, type }
+function bindSurvey(ctx) {
+  const box = document.getElementById("survey");
+  if (!box) return;
+  const ans = { fun: 0 }, msg = document.getElementById("sv-msg"), btn = document.getElementById("sv-send");
+  box.querySelectorAll(".sv-star").forEach(b => b.addEventListener("click", () => {
+    ans.fun = Number(b.dataset.star);
+    box.querySelectorAll(".sv-star").forEach(x => x.classList.toggle("on", Number(x.dataset.star) <= ans.fun));
+    document.getElementById("sv-more").hidden = false;
+  }));
+  box.querySelectorAll(".sv-opt").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.q, same = ans[k] === b.dataset.v;   // 같은 걸 다시 누르면 고른 것 취소
+    ans[k] = same ? "" : b.dataset.v;
+    box.querySelectorAll(`.sv-opt[data-q="${k}"]`).forEach(x => x.classList.toggle("on", !same && x === b));
+  }));
+  btn.addEventListener("click", async () => {
+    if (!ans.fun || btn.disabled) return;
+    btn.disabled = true; msg.className = "msg"; msg.textContent = "보내는 중…";
+    const body = { kind: "survey", ...ans, text: document.getElementById("sv-text").value.trim().slice(0, 200), ver: APP_VERSION,
+      mode: hardMode ? "hard" : "normal", score: ctx.score, ending: ctx.ending, type: ctx.type, group: group || "", startLoc: startLoc || "" };
+    try {
+      const r = await (await fetch(bugApi(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })).json();
+      if (!r || !r.ok) throw new Error("no");
+      try { localStorage.setItem(SURVEY_KEY, APP_VERSION); } catch (e) {}
+      if (box.isConnected) box.innerHTML = `<p class="sv-title">고마워요! 더 좋게 만드는 데 쓸게요.</p>`;
+    } catch (err) { if (box.isConnected) { msg.textContent = "보내지 못했어요. 잠시 뒤 다시 눌러 주세요."; btn.disabled = false; } }
+  });
+}
 </script>
 
 </html>
