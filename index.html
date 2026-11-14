@@ -816,6 +816,17 @@ button.social-btn { font: inherit; font-weight: 700; cursor: pointer; }
 .sv-opt { font: inherit; font-size: .9rem; color: var(--fg); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
 .sv-opt.on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
 .survey textarea { width: 100%; min-height: 72px; font: inherit; font-size: .9rem; font-weight: 400; color: var(--fg); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; resize: vertical; box-sizing: border-box; }
+/* 내 유형 기록: 좁은 폰에서 제목이 낱말 중간에 끊기지 않게 — 제목 한 줄, 그 아래 엔딩·점수·날짜 */
+details.sec > summary { word-break: keep-all; }
+.type-past details.sec > summary { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; row-gap: 2px; align-items: center; }
+.type-past details.sec > summary > span:first-child { grid-column: 1; grid-row: 1; }
+.type-past details.sec > summary .sec-sub { grid-column: 1; grid-row: 2; margin-left: 0; }
+.type-past details.sec > summary::after { grid-column: 2; grid-row: 1 / span 2; }
+/* 가방 한 칸짜리 이름: 네 글자는 조금 작게 한 줄, 띄어쓰기가 있으면 낱말 단위로 두 줄 (비상식/량처럼 끊기지 않게) */
+.placed .rot .nm.n4 { font-size: .5rem; letter-spacing: -.05em; white-space: nowrap; word-break: normal; }
+.placed .rot .nm.two { font-size: .5rem; letter-spacing: -.03em; line-height: 1.05; word-break: keep-all; }
+/* 앱 안 브라우저(카카오톡 등)가 글자를 제멋대로 키우지 않게 */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 </style>
 
 <header class="topbar">
@@ -898,7 +909,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.92";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.93";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -3232,7 +3243,10 @@ function bagHtml(mode, list = placed, pk = pocket) {
     if (!wide && item.perCell && uses[p.id]) nmText = nmText.replace(/\d+병/, uses[p.id] + "병");
     const hasUses = mode === "use" && item.uses && !item.perCell;
     const inlineUses = hasUses && p.w === 1 && p.h === 1;   // 한 칸짜리는 구석 숫자가 이름과 겹쳐서 이름 옆에 적음
-    const inner = `<span class="emo">${item.emo}</span><span class="nm${wide ? " wide" : ""}">${nmText}${inlineUses ? ` ×${uses[p.id]}` : ""}</span>`;
+    const nmFull = nmText + (inlineUses ? ` ×${uses[p.id]}` : "");
+    // 한 칸 폭에 이름 맞추기: 띄어쓰기가 있으면 두 줄(낱말 단위), 네 글자 이상이면 조금 작게 한 줄
+    const nmCls = wide ? " wide" : /\s/.test(nmFull) ? " two" : nmFull.length >= 4 ? " n4" : "";
+    const inner = `<span class="emo">${item.emo}</span><span class="nm${nmCls}">${nmFull}</span>`;
     const usesTag = hasUses && !inlineUses ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed" style="${style}"><div class="rot">${inner}</div></div>`;
     if (mode === "use") return `<div class="placed" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
