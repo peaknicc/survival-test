@@ -615,6 +615,7 @@ details.sec > summary { scroll-margin-top: 12px; }
 .sg-timer b { font-family: var(--font-display); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 .hold-bar.sg-urgent i { background: var(--bad); animation: blink .5s infinite; }
 .mini.sg-shake { animation: shake .3s 3; }
+.mini.sg-shake1 { animation: shake .3s 1; }
 .sg-card.right { border-color: var(--good); box-shadow: 0 0 0 3px var(--good); }
 .sg-card.wrong { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad); opacity: .8; }
 .achv-new { background: var(--accent-soft); border: 2px solid var(--accent); border-radius: 12px; padding: 12px 14px; font-size: .95rem; }
@@ -4236,7 +4237,9 @@ const MINI = {
           <div class="hold-bar sg-urgent"><i id="sg-fill" style="width:100%"></i></div>
           <div class="sg-grid${nCards > 4 ? " sg-many" : ""}" style="grid-template-columns:repeat(${nCards > 4 ? 3 : 2},1fr)${hardMode ? `;filter:saturate(${(round >= 7 ? 0.03 : 0.5 - (round - 1) * 0.07).toFixed(2)})` : ""}">${cards.map(cardHtml).join("")}</div>
           <p class="mini-live">맞힌 수 <b>${right}</b></p>`;
-        if (round === 1) { box.classList.remove("sg-shake"); void box.offsetWidth; box.classList.add("sg-shake"); }   // 첫 판: 화면 흔들림
+        box.classList.remove("sg-shake", "sg-shake1");
+        if (round === 1) { void box.offsetWidth; box.classList.add("sg-shake"); }
+        else if (hardMode && round === 9) { void box.offsetWidth; box.classList.add("sg-shake1"); }   // 하드 9번: 한 번 살짝   // 첫 판: 화면 흔들림
         const fillEl = document.getElementById("sg-fill");
         let picked = false;
         const pick = c => {
