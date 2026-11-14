@@ -7,7 +7,12 @@
 <meta name="description" content="전쟁이 나면, 나는 살아남을까? 정부 비상시 국민행동요령을 바탕으로 만든 가상 생존 테스트">
 <meta property="og:title" content="생존 테스트">
 <meta property="og:description" content="전쟁이 나면, 나는 살아남을까?">
-<meta property="og:image" content="img/COVER_MAIN.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://peaknicc.github.io/survival-test/">
+<meta property="og:image" content="https://peaknicc.github.io/survival-test/img/COVER_MAIN.jpg">
+<meta property="og:image:width" content="768">
+<meta property="og:image:height" content="960">
+<meta name="twitter:card" content="summary_large_image">
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <title>생존 테스트</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -893,7 +898,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.91";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.92";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
