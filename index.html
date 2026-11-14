@@ -875,7 +875,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.77";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.78";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2786,7 +2786,7 @@ function showStart() {
     </div>
     <div class="sgrp">
     <label class="nick-row">닉네임 <input id="start-nick" maxlength="12" placeholder="결과 화면과 카드 이미지에 들어가요" value="${escapeHtml(loadNick())}"></label>
-    ${SHEET_API ? `<p class="note">끝까지 하면 점수·엔딩·챙긴 물건이 통계와 생존자 명단에 남아요. 닉네임은 확인을 거친 뒤 명단에 보여요. 실명은 쓰지 말아 주세요.</p>` : ""}
+    ${SHEET_API ? `<p class="note">끝까지 하면 점수·엔딩·챙긴 물건이 통계에 반영돼요. 닉네임은 내 결과 화면과 카드에만 쓰이고 다른 사람에게는 보이지 않아요.</p>` : ""}
     <p class="msg" id="nick-msg" style="min-height:0"></p>
     </div>
     <div class="toggles">
