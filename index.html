@@ -832,6 +832,9 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .type-head .type-who { display: block; font-size: .78em; color: var(--muted); margin-bottom: 2px; }
 .type-head .type-nm { display: block; word-break: keep-all; }
 .type-card .type-line, .type-card > .note, .type-card .ax-why, .type-card .type-match { word-break: keep-all; overflow-wrap: anywhere; }
+/* 표지 찾기 카드: 누르는 순간 반응하게 — 그림이 터치를 가로채거나 길게 눌러 메뉴가 뜨지 않게 */
+.sg-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.sg-card img { pointer-events: none; -webkit-user-drag: none; }
 </style>
 
 <header class="topbar">
@@ -914,7 +917,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.94";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.95";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -3835,6 +3838,13 @@ function useItem(index, id) {
 let miniLog = {};            // 장면 번호 → 미니게임 결과 한 줄 (피드백에 표시)
 let miniStop = null;         // 진행 중인 미니게임 정리 함수
 let urgentDeadline = 0, urgentTimer = null, urgentIndex = -1;
+// 빠르게 눌러야 하는 버튼용: 손가락이 닿는 순간 바로 실행. click은 손가락이 조금만 밀려도 안 생겨서 "눌렀는데 반응이 없다"가 됨
+// (키보드로 누른 click은 그대로 받고, 방금 손가락으로 누른 뒤 따라오는 click은 무시)
+function onTap(el, fn) {
+  let last = 0;
+  el.addEventListener("pointerdown", e => { if (e.button > 0 || el.disabled) return; last = performance.now(); fn(e); });
+  el.addEventListener("click", e => { if (performance.now() - last < 700) return; fn(e); });
+}
 function stopMini() { if (miniStop) { miniStop(); miniStop = null; } closeMiniLayer(); }
 function miniLayer() {
   let L = document.getElementById("mini-layer");
@@ -3961,7 +3971,7 @@ const MINI = {
   cpr: {
     title: "🫀 가슴압박",
     intro: "가슴 한가운데에 두 손을 포갰다.",
-    how: () => "하트를 <strong>박자에 맞춰 연타</strong>하세요. 기준은 <strong>분당 100~120회</strong>예요. 처음부터 끝까지 <strong>10초 전체 평균</strong>으로 재니까 쉬지 말고 꾸준히 누르세요. 바깥 원이 그 빠르기로 뛰어요.",
+    how: () => "하트를 <strong>박자에 맞춰 연타</strong>하세요. 기준은 <strong>분당 100~120회</strong>예요. 처음부터 끝까지 <strong>10초 전체 평균</strong>으로 재고, <strong>박자가 고른지</strong>도 봐요. 느리게 누르다 몰아서 누르면 안 돼요. 바깥 원이 그 빠르기로 뛰어요.",
     play(box, end) {
       box.innerHTML = `
         <p class="mini-tag">🫀 가슴압박 · 첫 탭부터 10초</p>
@@ -3982,6 +3992,10 @@ const MINI = {
         const tip = "실제 가슴압박: 가슴뼈 아래쪽 절반을 약 5cm 깊이로, 분당 100~120회 (2025 한국 심폐소생술 가이드라인)";
         if (taps.length < 6) return end({ ok: false, hp: -6, big: "", text: "거의 누르지 못했어요. 쉬지 않고 계속 눌러야 해요.", log: "🫀 가슴압박: 거의 못 누름 ❌", tip });
         const slow = bpm < 100 ? "느렸" : "빨랐";
+        // 박자가 고른가: 탭 사이 간격 가운데 0.4~0.75초(분당 80~150회)인 것이 3분의 2 이상이어야 함
+        let even = 0; for (let i = 1; i < taps.length; i++) { const g = taps[i] - taps[i - 1]; if (g >= 400 && g <= 750) even++; }
+        const steady = even / (taps.length - 1) >= 2 / 3;
+        if (bpm >= 100 && bpm <= 120 && !steady) return end({ ok: false, hp: -6, big: `분당 ${bpm}회`, text: "평균은 맞았지만 박자가 들쭉날쭉했어요. 느리게 누르다 몰아서 누르면 피가 제대로 돌지 않아요. 처음부터 끝까지 같은 빠르기로 눌러야 해요.", log: `🫀 가슴압박 평균 분당 ${bpm}회 · 박자가 고르지 않음 ❌`, tip });
         if (bpm >= 100 && bpm <= 120) return end({ ok: true, hp: 6, big: `분당 ${bpm}회`, text: "딱 좋은 박자예요! 숨이 돌아올 때까지 버틸 수 있겠어요.", log: `🫀 가슴압박 박자 분당 ${bpm}회 ✅`, tip });
         return end({ ok: false, hp: -6, big: `분당 ${bpm}회`, text: `${bpm >= 90 && bpm <= 130 ? "조금" : "너무"} ${slow}어요. 효과가 있는 박자는 분당 100~120회예요. ${bpm < 100 ? "더 빠르게" : "조금 천천히, 대신 깊게"} 눌러야 해요.`, log: `🫀 가슴압박 박자 분당 ${bpm}회 ❌`, tip });
       };
@@ -4088,7 +4102,7 @@ const MINI = {
   fire: {
     title: "🧯 소화기 쓰기",
     intro: "불이 붙었다! 벽에 소화기가 걸려 있다.",
-    how: () => "빛나는 곳을 차례로 눌러요. ① <strong>안전핀</strong> 뽑기 → ② <strong>노즐</strong>을 불 쪽으로 → ③ <strong>손잡이</strong> 꽉 쥐기 → ④ 여기저기 붙는 <strong>불을 눌러</strong> 끄기 (5개). 틀리거나 늦으면 불이 커져요." + (hardMode ? " 🔥 하드: 불이 훨씬 빨리 번져요. 하나씩 두 번씩 눌러서 15개를 끄세요 (한꺼번에 6개가 되면 실패)." : ""),
+    how: () => "빛나는 곳을 차례로 눌러요. ① <strong>안전핀</strong> 뽑기 → ② <strong>노즐</strong>을 불 쪽으로 → ③ <strong>손잡이</strong> 꽉 쥐기 → ④ 여기저기 붙는 <strong>불을 눌러</strong> 끄기 (5개). <strong>틀릴 때마다 꺼야 할 불이 하나씩 늘어요.</strong>" + (hardMode ? " 🔥 하드: 불이 훨씬 빨리 번져요. 하나씩 두 번씩 눌러서 15개를 끄세요 (한꺼번에 6개가 되면 실패)." : ""),
     play(box, end) {
       const STEPS = ["pin", "aim", "grip"];
       const LIMIT = hardMode ? 12 : 16;
@@ -4096,6 +4110,8 @@ const MINI = {
       const SPAWN = hardMode ? 450 : 650, PREP_SPAWN = hardMode ? 1000 : 1400;   // 준비 중에도 불이 조금씩 번짐
       const MSG = ["① 소화기 손잡이 위 <b>안전핀</b>을 뽑아요", "② <b>노즐(호스)</b>을 불 쪽으로 향해요", "③ <b>손잡이</b>를 꽉 쥐어요", hardMode ? "④ 이제 뿌려요! 🔥를 하나씩 <b>두 번씩</b> 눌러 꺼요!" : "④ 이제 뿌려요! <b>🔥를 눌러서</b> 하나씩 꺼요!"];
       let step = 0, mistakes = 0, killed = 0, fires = 0, over = false;
+      let extra = 0;   // 보통 모드: 실수할 때마다 꺼야 할 불이 하나 늘어남 (최대 4개)
+      const need = () => KILL + extra;
       const t0 = performance.now(); let lastSpawn = t0;
       box.innerHTML = `
         <p class="mini-tag">🧯 소화기 · ${LIMIT}초 안에</p>
@@ -4126,25 +4142,27 @@ const MINI = {
         if (ok) end({ ok: true, hp: 0, big: mistakes ? `실수 ${mistakes}번` : "실수 없이", text: "하얀 분말이 덮치자 불이 꺼졌다. 휴…", log: `🧯 소화기로 불을 끔${mistakes ? ` (실수 ${mistakes}번)` : " ✅"}`, tip });
         else end({ ok: false, hp: -10, big: "", text: "불이 순식간에 번졌다. 연기를 마시며 겨우 빠져나왔다.", log: "🧯 소화기 실패 · 불이 번짐 ❌", tip });
       };
-      const canSpawn = () => !over && (hardMode ? killed + fires < KILL + 3 : killed + fires < KILL);
+      const canSpawn = () => !over && (hardMode ? killed + fires < KILL + 3 : killed + fires < need());
       const spawnFire = () => {
         if (!canSpawn()) return;
         const f = document.createElement("button"); f.type = "button"; f.className = "fx-spot pop"; f.textContent = "🔥"; f.dataset.hp = String(FIRE_HP);
         f.style.left = (10 + Math.random() * 76) + "%"; f.style.top = (12 + Math.random() * 70) + "%";
-        f.addEventListener("click", () => {
+        onTap(f, () => {
+          if (over || !f.isConnected) return;
           if (step < 3) return mistake(f, "아직 소화기 준비가 안 됐어요!");
           f.dataset.hp = String(Number(f.dataset.hp) - 1); f.classList.add("hit");
           if (Number(f.dataset.hp) > 0) return;
-          f.remove(); fires--; killed++; needEl.textContent = Math.max(0, KILL - killed);
-          spray.style.width = Math.min(100, killed / KILL * 100) + "%";
-          if (killed >= KILL) finish(true);
+          f.remove(); fires--; killed++; needEl.textContent = Math.max(0, need() - killed);
+          spray.style.width = Math.min(100, killed / need() * 100) + "%";
+          if (killed >= need()) finish(true);
         });
         field.appendChild(f); fires++;
         if (fires > MAXFIRES) finish(false);
       };
       const mistake = (el, text) => {
         mistakes++; missEl.textContent = mistakes;
-        msg.innerHTML = text + " 불이 번졌다!";
+        if (!hardMode && extra < 4) { extra++; needEl.textContent = Math.max(0, need() - killed); spray.style.width = Math.min(100, killed / need() * 100) + "%"; }
+        msg.innerHTML = text + (hardMode ? " 불이 번졌다!" : " 불이 번져 꺼야 할 불이 늘었어요!");
         el.classList.add("shake"); setTimeout(() => el.classList.remove("shake"), 400);
         spawnFire();   // 틀리면 불이 하나 더 붙음
       };
@@ -4354,7 +4372,7 @@ const MINI = {
           box.querySelectorAll("[data-c]").forEach((b, i) => { b.disabled = true; if (cards[i].real) b.classList.add("right"); else if (i === idx) b.classList.add("wrong"); });
           setTimeout(() => { if (!stopped) next(); }, hardMode ? 180 : imageMode ? 1500 : 700);
         };
-        box.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => pick(cards[Number(b.dataset.c)], Number(b.dataset.c))));
+        box.querySelectorAll("[data-c]").forEach(b => onTap(b, () => pick(cards[Number(b.dataset.c)], Number(b.dataset.c))));
         let lastSec = -1;   // 1초마다 숫자 갱신 + 삑
         t0 = performance.now();
         iv = setInterval(() => {
