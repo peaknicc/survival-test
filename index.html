@@ -878,7 +878,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.83";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.84";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2183,15 +2183,31 @@ const Sound = {
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     o.connect(g).connect(this.master); o.start(t); o.stop(t + len); this.playing.push(o);
   },
+  // 폭발 한 방: 넓게 터졌다가 낮게 가라앉는 잡음. 폰 스피커로도 들리게 200~1200Hz에 몸통을 두고, 꼬리를 길게 끎
+  blast(at, len, vol) {
+    const ctx = this.ctx, t = ctx.currentTime + at;
+    const buf = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * len)), ctx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.Q.value = 0.7;
+    f.frequency.setValueAtTime(1200, t); f.frequency.exponentialRampToValueAtTime(200, t + len * 0.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(vol * 0.35, t + len * 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + len); this.playing.push(src);
+  },
   // 💥 연쇄 폭발: 콰콰콰쾅——! 짧은 폭발이 잇따르다 큰 폭발과 긴 울림
   barrage() {
     if (!this.on || !this.ensure()) return;
-    [[0, .5], [.17, .6], [.31, .55], [.5, .75], [.64, .7], [.82, .9]].forEach(([at, k]) => {
-      this.burst(at, .45, VOLUME * 7 * k, "lowpass", 260 + Math.random() * 160);
-      this.burst(at, .09, VOLUME * 3 * k, "highpass", 1800, .004);     // '콰' 하는 날카로운 앞소리
+    [[0, .5], [.21, .65], [.33, .5], [.58, .8], [.69, .6], [.86, .9]].forEach(([at, k]) => {   // 간격을 고르지 않게
+      this.blast(at, .9, VOLUME * 6 * k);
       this.thump(at, .35, VOLUME * 5 * k, 110, 45);
     });
-    this.burst(1.02, .14, VOLUME * 5, "highpass", 1500, .004);
+    this.blast(1.02, 2.6, VOLUME * 8);
     this.burst(1.02, 2.3, VOLUME * 11, "lowpass", 300);                 // 쾅——
     this.burst(1.02, 2.3, VOLUME * 6, "lowpass", 90);
     this.thump(1.02, 1.6, VOLUME * 9, 95, 28);
@@ -2201,9 +2217,9 @@ const Sound = {
   bombard() {
     if (!this.on || !this.ensure()) return;
     const far = (at, k) => { this.burst(at, 1.3, VOLUME * 6 * k, "lowpass", 130); this.thump(at, .9, VOLUME * 6 * k, 80, 30); };
-    const near = (at, k, len) => { this.burst(at, .1, VOLUME * 4 * k, "highpass", 1700, .004); this.burst(at, len, VOLUME * 9 * k, "lowpass", 280); this.thump(at, len * .7, VOLUME * 7 * k, 105, 32); };
+    const near = (at, k, len) => { this.blast(at, len + .5, VOLUME * 7 * k); this.thump(at, len * .7, VOLUME * 6 * k, 105, 32); };
     far(0.3, 1);                                                    // 쿵
-    [[1.9, .55, .4], [2.06, .7, .4], [2.24, .85, .45], [2.5, 1.25, 2.2]].forEach(([at, k, len]) => near(at, k, len));   // 콰콰콰쾅——
+    [[1.9, .55, .6], [2.13, .8, .7], [2.3, .6, .6], [2.62, 1.25, 2.4]].forEach(([at, k, len]) => near(at, k, len));   // 콰콰콰쾅——
     this.burst(2.9, 1.6, VOLUME * 2.2, "bandpass", 480, .3);        // 메아리
     [[4.7, 1], [5.0, .7], [5.22, 1.1]].forEach(([at, k]) => far(at, k));                                             // 쿵쿠쿵
   },
@@ -2335,6 +2351,7 @@ function updateSoundUi() {
   if (row) row.classList.toggle("on", Sound.on);
 }
 document.getElementById("sound-fab").addEventListener("click", () => Sound.toggle());
+["pointerup", "click", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (Sound.on) Sound.ensure(); }, true));   // 소리를 켠 채 다시 들어왔을 때 첫 터치에서 소리 장치를 깨움
 updateSoundUi();
 
 // ───────── 아래 고정 바 ─────────
@@ -2415,7 +2432,7 @@ async function initDb() {
     if (!(window.claude && window.claude.use)) {
       // GitHub판: 구글 시트에서 기록을 읽고, 판이 끝나면 자동으로 한 줄 보냄
       if (!SHEET_API) { recordsState = "off"; return; }
-      db = { remote: true, collection: () => ({ add: rec => fetch(SHEET_API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(rec) }) }) };
+      db = { remote: true, collection: () => ({ add: rec => fetch(SHEET_API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(rec), keepalive: true }) }) };
       const timer = setTimeout(() => { if (recordsState === "loading") { recordsState = "slow"; refreshRecordViews(); } }, 10000);
       try {
         const list = await (await fetch(SHEET_API)).json();
@@ -2474,7 +2491,7 @@ function statsInner() {
   const avg = list => list.length ? Math.round(list.reduce((s, r) => s + (r.score || 0), 0) / list.length) : "-";
   const byGroup = Object.keys(GROUPS).map(g => ({ g, list: records.filter(r => r.group === g) }));
   const endCount = {}; records.forEach(r => { endCount[r.ending] = (endCount[r.ending] || 0) + 1; });
-  const itemCount = {}; records.forEach(r => (r.items || []).forEach(id => { if (ITEM_BY_ID[id]) itemCount[id] = (itemCount[id] || 0) + 1; }));
+  const itemCount = {}; records.forEach(r => new Set((r.items || []).filter(id => Object.prototype.hasOwnProperty.call(ITEM_BY_ID, id)).map(baseOf)).forEach(id => { itemCount[id] = (itemCount[id] || 0) + 1; }));
   const topItems = Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const ends = ENDING_ORDER.filter(k => endCount[k]).sort((a, b) => endCount[b] - endCount[a]);
   const myEnds = loadFound(), myTypes = loadJson(TYPE_KEY, []);
@@ -2580,8 +2597,8 @@ function shrinkImage(file) {
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
       const make = (max, q) => { const k = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q); };
-      let d = make(720, .6); if (d.length > 240000) d = make(560, .45); if (d.length > 240000) d = make(420, .4);
-      URL.revokeObjectURL(url); resolve(d);
+      let d = make(720, .6); if (d.length > 240000) d = make(560, .45); if (d.length > 240000) d = make(420, .4); if (d.length > 240000) d = make(300, .3);
+      URL.revokeObjectURL(url); if (d.length > 240000) reject(new Error("big")); else resolve(d);
     };
     im.onerror = () => { URL.revokeObjectURL(url); reject(new Error("img")); };
     im.src = url;
@@ -3087,10 +3104,11 @@ function dragTarget(e) {
 function onDragStart(e) {
   if (e.button > 0) return;                 // 마우스 오른쪽 버튼 무시
   e.preventDefault();                       // 글자 선택·길게 누르기 메뉴 방지
+  if (drag) { stopDrag(); clearPreview(); document.querySelectorAll(".dragging").forEach(x => x.classList.remove("dragging")); }   // 복사본 그림이 화면에 남지 않게
   const btn = e.currentTarget, id = btn.dataset.rot, p = placed.find(q => q.id === id);
   const c = cellFromPoint(e.clientX, e.clientY), r = btn.getBoundingClientRect();
   drag = { id, btn, startX: e.clientX, startY: e.clientY, offX: c.x - p.x, offY: c.y - p.y,
-           grabX: e.clientX - r.left, grabY: e.clientY - r.top, w: r.width, h: r.height, moving: false, ghost: null };
+           grabX: e.clientX - r.left, grabY: e.clientY - r.top, w: r.width, h: r.height, moving: false, ghost: null, pid: e.pointerId };
   window.addEventListener("pointermove", onDragMove);
   window.addEventListener("pointerup", onDragEnd);
   window.addEventListener("pointercancel", onDragCancel);
@@ -3105,7 +3123,7 @@ function stopDrag() {
 }
 function onDragCancel() { stopDrag(); if (timerId) rerender(() => renderPack("")); }
 function onDragMove(e) {
-  if (!drag) return;
+  if (!drag || (e.pointerId != null && e.pointerId !== drag.pid)) return;   // 끌고 있는 그 손가락만 따라감
   if (!timerId) { stopDrag(); return; }   // 가방 싸기가 끝났으면 무시
   if (!drag.moving) {
     if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 6) return;
@@ -3130,7 +3148,7 @@ function onDragMove(e) {
   }
 }
 function onDragEnd(e) {
-  if (!drag) return;
+  if (!drag || (e.pointerId != null && e.pointerId !== drag.pid)) return;   // 끌고 있는 그 손가락만 따라감
   if (!timerId) { stopDrag(); return; }   // 가방 싸기가 끝났으면 무시
   const t = dragTarget(e);            // 놓은 위치 (drag가 지워지기 전에 계산)
   const d = stopDrag();
@@ -3488,7 +3506,18 @@ function startScene(index) {
   stopUrgent(); stopMini();
   tried = []; penalty = 0; sceneMsg = ""; notice = null; pickerOpen = false; dropMode = false; pendingUse = null;
   notice = enterScene(scenes[index]);
-  if (hp <= 0) { showResult(); return; }
+  if (hp <= 0) {
+    const feed = document.getElementById("feed");
+    if (!feed || !notice) { showResult(); return; }
+    feed.querySelectorAll(".feed-next").forEach(x => x.remove());
+    const sec = document.createElement("section"); sec.className = "feed-block";
+    sec.innerHTML = '<p class="stage">' + scenes[index].stage + '</p><p class="notice down">' + notice.text + '</p><p class="delta down">눈앞이 하얘지며 다리가 풀렸다…</p><button class="nav-primary highlight feed-next" id="feed-next">결과 보기 →</button>';
+    feed.appendChild(sec); reveal(sec);
+    const fm = document.getElementById("feed-meters"); if (fm) fm.innerHTML = metersHtml("scene");
+    setNav({ game: true, back: true });
+    document.getElementById("feed-next").addEventListener("click", () => showResult());
+    return;
+  }
   Sound.play(scenes[index].sfx, scenes[index].announce);
   const ev = scenes[index].event && !(scenes[index].event.kind === "sign" && route === "subway") ? scenes[index].event : null;   // 지하철은 이미 역 = 대피소
   if (ev) {
@@ -3516,8 +3545,10 @@ function startScene(index) {
 function beginScene(index) {
   renderScene(index);
   const live = document.getElementById("live");
+  let started = false;   // 스크롤 감지와 0.8초 뒤 확인이 둘 다 걸려도 한 번만 시작
   const go = () => {
-    if (document.getElementById("live") !== live) return;
+    if (started || document.getElementById("live") !== live || !live.querySelector(".options")) return;
+    started = true;
     startUrgent(index);
     const m = document.getElementById("feed-meters"); if (m) m.innerHTML = metersHtml("scene");
   };
@@ -3754,6 +3785,13 @@ function miniLayer() {
 }
 function closeMiniLayer() { const L = document.getElementById("mini-layer"); if (L) L.remove(); document.body.classList.remove("mini-open"); }
 function stopUrgent() { clearInterval(urgentTimer); urgentTimer = null; urgentDeadline = 0; urgentIndex = -1; }
+// 전화·알림·화면 잠금으로 화면이 가려졌다 돌아오면, 가려진 시간만큼 마감을 미룸 (돌아오자마자 '시간 초과'가 되지 않게)
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (hiddenAt && urgentDeadline) urgentDeadline += Date.now() - hiddenAt;
+  hiddenAt = 0;
+});
 
 // 급한 장면: 몇 초 안에 고르지 않으면 얼어붙음 (가장 낮은 점수 선택지로 처리 + 체력 −5)
 function urgentSecOf(s) { return s.urgent || (s.actions.some(a => a.achv === "cpr") ? 10 : 0); }
@@ -3766,8 +3804,10 @@ let urgentTotal = 10;
 function startUrgent(index) {
   const sec = urgentSecOf(scenes[index]);
   if (!sec) return;
+  clearInterval(urgentTimer);   // 두 번 불려도 앞의 타이머가 남지 않게
   urgentTotal = sec; urgentIndex = index; urgentDeadline = Date.now() + sec * 1000;
   urgentTimer = setInterval(() => {
+    if (document.hidden || hiddenAt) return;   // 화면이 가려진 동안은 시간이 흐르지 않음
     const left = (urgentDeadline - Date.now()) / 1000;
     const n = document.getElementById("urgent-left"), f = document.getElementById("urgent-fill");
     if (n) n.textContent = Math.max(0, Math.ceil(left));
@@ -4322,6 +4362,7 @@ function applyChoice(index, choice) {
 
 function resolve(index, choice) {
   stopUrgent();
+  if (!choice.miniDone && results[index]) return;   // 이미 고른 장면 (시간 초과와 누르기가 겹쳐도 한 번만)
   const miniKind = choice.mini || (choice.achv === "cpr" ? "cpr" : null);
   if (miniKind && !choice.miniDone) {
     const lv = document.getElementById("live");
@@ -4947,7 +4988,7 @@ function loadNick() { try { const n = cleanNick(localStorage.getItem(NICK_KEY));
 // 닉네임: 한글·영어·일본어·숫자·띄어쓰기만. 욕설·비하 표현이 들어 있으면 bad
 const NICK_BAD = ["씨발","씨바","씨팔","시팔","ㅅㅂ","ㅆㅂ","병신","ㅂㅅ","븅신","좆","좃","ㅈㄴ","지랄","ㅈㄹ","새끼","ㅅㄲ","섹스","ㅅㅅ","창녀","창년","느금","니미럴","엠창","애미","미친놈","미친년","썅","쌍년","쌍놈","걸레년","강간","야동","일베충","노알라","한남충","김치녀","된장녀","틀딱","맘충","급식충","짱깨","쪽바리","조센징","깜둥","카지노","fuck","shit","bitch","sex","dick","pussy","cunt","nigg","porn","asshole","bastard","slut","whore","raping","sibal","tlqkf","くそったれ","くそやろう","クソ","死ね","しね","ちんこ","まんこ","マンコ","セックス","きもい","キモい","시벌","씨벌","슈발","쉬발","씨부랄","시부랄","빙신","지럴","옘병","개놈","ㄴㄱㅁ","qudtls","딸딸이","후장","딜도","오나홀","성추행","윤간","근친","육변기","한녀충","보슬아치","피싸개","꼴페미","퐁퐁남","전라디언","개쌍도","정박아","짱개","쪽빠리","똥남아","착짱죽짱","히틀러","홀로코스트","인종청소","난징대학살","관동대학살","가미카제","김정은만세","penis","vagina","hentai","faggot","chink","gook","hitler","nazi","ちんぽ","レイプ","ガイジ","보지","자지","시발","염병","성폭","씹","느개","느검","니엄마","느그엄","느그애","앰창","좇","니애"];
 function cleanNick(v) {
-  const text = String(v || "").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").slice(0, 12);
+  const text = String(v || "").replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9ぁ-ゖァ-ヺー一-龥々 ]/g, "").replace(/\s+/g, " ").replace(/^ /, "").slice(0, 12);
   const flat = text.toLowerCase().replace(/[\s0-9]/g, "");
   const flat2 = flat.replace(/[ー々ㄱ-ㅎㅏ-ㅣ]/g, "");   // 끼워 넣은 기호·낱자를 뺀 것도 같이 봄 (시ー발, 시ㅡ발)
   return { text, bad: NICK_BAD.some(w => flat.includes(w) || flat2.includes(w)) };
@@ -5041,7 +5082,7 @@ function showResult() {
   const typePast = flags.typeHistSaved ? typeHist.slice(0, -1) : typeHist;   // 이번 판을 뺀 지난 회차
   const hardTitle = !hardMode || hp <= 0 ? "" : ending === "perfect" ? "👑 지옥에서 돌아온 자" : score >= 70 ? "🔥 불지옥 생존자" : "🔥 하드 생존자";
   if (!testMode) { const ft = loadJson(TYPE_KEY, []); if (!ft.includes(typeKey)) saveJson(TYPE_KEY, [...ft, typeKey]); }
-  const achv = checkAchievements({ score, ending, itemScore, kg, empty: startIdsAll.length === 0 });
+  const achv = flags.achvRes || (flags.achvRes = checkAchievements({ score, ending, itemScore, kg, empty: startIdsAll.length === 0 }));
   const master = forceMaster || ENDING_ORDER.every(k => found.includes(k));   // 도감 완성 보상
   const nick = loadNick();
   const canRewind = isUnlocked("rewind");   // 업적을 방금 받았어도 바로 열림
