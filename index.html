@@ -1019,6 +1019,15 @@ body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 
 .inv-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1.5px solid var(--accent); border-radius: 12px; padding: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.45); max-height: 70vh; overflow-y: auto; display: grid; gap: 6px; }
 .inv-panel .note { margin: 0; font-size: .78rem; }
 .inv-panel .bag, .inv-panel .pocket { max-width: min(420px, 48vh); }   /* 낮은 화면에서도 앞주머니까지 보이게 */
+/* 내 물건 막대는 위쪽 고정 줄 맨 아래 (미니게임 화면에선 숨김) */
+.sticky .inv-wrap { margin-top: 2px; }
+.sticky .inv-panel { max-height: calc(100dvh - 120px); }
+.mini-layer .inv-wrap { display: none; }
+/* 결과 화면: '그 뒤' 글 밑으로 차례로 스르륵 */
+.after-page.done { min-height: 0; padding: 4px 4px 8px; gap: 8px; }
+.res-in { animation: resIn .6s ease both; }
+@keyframes resIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .res-in { animation: none; } }
 </style>
 
 <header class="topbar">
@@ -1101,7 +1110,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.11";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.12";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2295,8 +2304,15 @@ const app = document.getElementById("app");
 // ───────── 소리 (브라우저 기본 Web Audio로 사이렌을 직접 만듦, 외부 파일 없음) ─────────
 const VOLUME = 0.06;          // 적당히 작게
 const Sound = {
-  on: false, ctx: null, master: null,
-  ensure() {
+  on: false, ctx: null, master: null, needReset: false,
+  // 아이폰은 안내방송 음성·화면 전환 뒤 효과음 장치가 "돌고 있는데 소리가 안 나는" 상태가 됨 → 다음 터치 때 새로 만듦
+  reset() {
+    try { if (this.ctx && this.ctx.close) this.ctx.close(); } catch (e) {}
+    this.ctx = null; this.master = null; this.needReset = false;
+    return this.ensure();
+  },
+  ensure(fromTap) {
+    if (fromTap && this.needReset && this.ctx) return this.reset();   // 새로 만드는 건 터치 순간에만(아이폰은 그때만 소리를 허락)
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return false;
@@ -2337,6 +2353,7 @@ const Sound = {
       u.lang = "ko-KR"; u.rate = 1; u.pitch = 1; u.volume = 0.9;
       const ko = synth.getVoices().find(v => v.lang && v.lang.startsWith("ko"));
       if (ko) u.voice = ko;
+      u.onend = u.onerror = () => { this.needReset = true; };
       synth.speak(u);
     } catch (e) {}
   },
@@ -2586,7 +2603,7 @@ const Sound = {
   },
   toggle() {
     this.on = !this.on;
-    if (this.on) this.ensure();
+    if (this.on) this.reset();   // 켤 때는 늘 새 장치로
     if (this.master) this.master.gain.value = this.on ? 1 : 0;   // 끄면 울리던 소리도 바로 멈춤
     if (!this.on) this.stopSiren();
     try { localStorage.setItem("survival-test-sound", this.on ? "1" : "0"); } catch (e) {}
@@ -2603,9 +2620,10 @@ function updateSoundUi() {
   if (row) row.classList.toggle("on", Sound.on);
 }
 document.getElementById("sound-fab").addEventListener("click", () => Sound.toggle());
-["pointerup", "click", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (Sound.on) Sound.ensure(); }, true));   // 소리를 켠 채 다시 들어왔을 때 첫 터치에서 소리 장치를 깨움
+["pointerup", "click", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (Sound.on) Sound.ensure(true); }, true));   // 소리를 켠 채 다시 들어왔을 때 첫 터치에서 소리 장치를 깨움
 updateSoundUi();
 
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sound.needReset = true; });   // 다른 앱 갔다 오면 다음 터치에 새로
 // ───────── 아래 고정 바 ─────────
 // setNav({ game: 게임 도중인지(다시 하기·처음으로 두 번 눌러야 실행), back: 다시하기/처음으로 보이기, primary: {label, fn} })
 let navState = { game: false, back: false, primary: null };
@@ -3065,6 +3083,7 @@ function metersHtml(mode, extra = "") {
     </div>
     ${mode === "pack" ? `${packBarHtml()}<p class="note">${kg > SAFE_KG ? "⚠ 6kg를 넘었어요. 움직일 때마다 체력이 더 빨리 닳아요." : "6kg까지는 가볍게 움직일 수 있어요."}</p>` : ""}
     ${mode === "scene" ? urgentHtml() : ""}
+    ${mode === "scene" ? (() => { const lv = document.getElementById("live"); return lv && lv.querySelector(".options") ? invHtml(Number(lv.dataset.idx)) : ""; })() : ""}
     ${extra}
   </div>`;
 }
@@ -4025,7 +4044,6 @@ function renderScene(index) {
   live.innerHTML = `
     <div class="progress"><span>${GROUPS[group].label}${route ? " · " + routeName() : ""}${inGroup ? " · 그룹 루트" : ""}</span><span>${index + 1} / ${scenes.length}</span></div>
     <p class="stage">${s.stage}</p>
-    ${invHtml(index)}
     ${notice && notice.img && EP_IMG[notice.img] ? `<img class="ep-art bf-art" src="${EP_IMG[notice.img]}" alt="">` : EP_IMG[s.imgKey] ? `<img class="ep-art" src="${EP_IMG[s.imgKey]}" alt="">` : s.cut ? `<div class="cut" aria-hidden="true"><span class="emo">${s.cut}</span>${s.bubble ? `<span class="bubble">${s.bubble}</span>` : ""}</div>` : ""}
     ${s.announce && !s.alert && !/방송/.test(s.story) ? `<p class="announce">📢 안내방송 “${s.announce}”</p>` : ""}
     ${notice && !notice.moved ? `<p class="notice ${notice.up ? "up" : "down"}">${notice.text}</p>` : ""}
@@ -4055,6 +4073,7 @@ function renderScene(index) {
 
   clampFix(live);
   staggerOptions(live, index);
+  { const fm = document.getElementById("feed-meters"); if (fm) fm.innerHTML = metersHtml("scene"); }   // 내 물건 막대가 고정 줄에 있어서 같이 새로 그림
   setNav({ game: true, back: true });
   live.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => {
     const a = s.actions[Number(b.dataset.a)];
@@ -4068,11 +4087,6 @@ function renderScene(index) {
     if (ch.useId) consume(ch.useId);
     resolve(index, ch);
   }));
-  const pk = document.getElementById("open-picker");
-  if (pk) pk.addEventListener("click", () => { pickerOpen = !pickerOpen; dropMode = false; pendingUse = null; rerender(() => renderScene(index)); });
-  const dt = document.getElementById("drop-toggle");
-  if (dt) dt.addEventListener("click", () => { dropMode = !dropMode; pendingUse = null; rerender(() => renderScene(index)); });
-  live.querySelectorAll("[data-use]").forEach(b => b.addEventListener("click", () => useItem(index, b.dataset.use)));
   live.querySelectorAll("[data-loot]").forEach(b => b.addEventListener("click", () => takeLoot(index, b.dataset.loot)));
 }
 
@@ -4206,6 +4220,15 @@ function useItem(index, id) {
   rerender(() => renderScene(index));
 }
 
+// 내 물건 막대·가방 패널 (위쪽 고정 줄 안)
+document.addEventListener("click", e => {
+  const lv = document.getElementById("live");
+  if (!lv || !e.target.closest("#feed-meters")) return;
+  const index = Number(lv.dataset.idx);
+  if (e.target.closest("#open-picker")) { pickerOpen = !pickerOpen; dropMode = false; pendingUse = null; rerender(() => renderScene(index)); return; }
+  if (e.target.closest("#drop-toggle")) { dropMode = !dropMode; pendingUse = null; rerender(() => renderScene(index)); return; }
+  const u = e.target.closest("[data-use]"); if (u) useItem(index, u.dataset.use);
+});
 // ───────── 🎮 미니게임 · ⏱ 시간 제한 ─────────
 // 화면에서만 동작 (자동 플레이 테스트는 applyChoice만 써서 영향 없음)
 let miniLog = {};            // 장면 번호 → 미니게임 결과 한 줄 (피드백에 표시)
@@ -5514,10 +5537,19 @@ function showAfter(ending) {
   const box = document.getElementById("after-text"), next = document.getElementById("after-next");
   const chars = [...text];
   let n = 0;
-  const done = () => { clearInterval(tm); box.textContent = text; next.hidden = false; };
+  // 다 치면(또는 글을 누르면) 잠깐 뒤 결과 화면이 그 아래로 차례로 나타남. 버튼은 숨겨 둔 채 시험 도구용으로만 남김
+  let shown = false;
+  const reveal = () => {
+    if (shown || !box.isConnected) return; shown = true; clearInterval(tm);
+    const keep = `<section class="after-page done"><p class="after-tag">📅 그 뒤</p><p class="after-text">${text}</p></section>`;
+    showResult();
+    app.insertAdjacentHTML("afterbegin", keep);
+    [...app.children].slice(1).forEach((el, i) => { el.classList.add("res-in"); el.style.animationDelay = Math.min(i * 90, 900) + "ms"; });
+  };
+  const done = () => { clearInterval(tm); box.textContent = text; setTimeout(reveal, 700); };
   const tm = setInterval(() => { if (!box.isConnected) { clearInterval(tm); return; } n += 1; box.textContent = chars.slice(0, n).join(""); if (n >= chars.length) done(); }, 55);
   box.addEventListener("click", done);
-  next.addEventListener("click", () => { clearInterval(tm); showResult(); window.scrollTo(0, 0); });
+  next.addEventListener("click", reveal);
 }
 function showResult() {
   stopTimer(); stopUrgent(); stopMini();
