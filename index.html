@@ -1009,6 +1009,16 @@ body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 
 .options > .stg { opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
 .options > .stg.stg-in { opacity: 1; transform: none; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) { .options > .stg { transition: none; transform: none; } }
+/* 🎒 내 물건 막대와 위에서 열리는 가방 (그림을 덮어도 됨, 선택지 자리는 그대로) */
+.inv-wrap { position: relative; z-index: 6; }
+.inv-bar { width: 100%; display: flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; font-size: .86rem; color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 6px 12px; cursor: pointer; text-align: left; }
+.inv-bar.open { border-color: var(--accent); }
+.inv-bar:disabled { opacity: .6; cursor: default; }
+.inv-bar small { margin-left: auto; font-weight: 600; font-size: .76rem; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.inv-arrow { color: var(--muted); font-size: .8rem; }
+.inv-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1.5px solid var(--accent); border-radius: 12px; padding: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.45); max-height: 70vh; overflow-y: auto; display: grid; gap: 6px; }
+.inv-panel .note { margin: 0; font-size: .78rem; }
+.inv-panel .bag, .inv-panel .pocket { max-width: min(420px, 48vh); }   /* 낮은 화면에서도 앞주머니까지 보이게 */
 </style>
 
 <header class="topbar">
@@ -1091,7 +1101,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.10";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.11";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -1570,7 +1580,7 @@ const GROUP_SCENES = {
     {
       stage: "사흘째 07:00",
       alert: "정부, 예비군 동원령 발표 (대피소 안내 방송)",
-      story: "예비군 동원령이 나왔다. 차편은 없고, 안내받은 소집 장소까지는 걸어서 한 시간이다.",
+      story: "차편은 없고, 안내받은 소집 장소까지는 걸어서 한 시간이다.",
       thought: "가족한테는 뭐라고 남기고 가야 하지…",
       actions: [
         { t: "소집 장소·시간을 확인하고, 가족에게 말을 전해 달라고 부탁한 뒤 걸어서 출발한다", p: 9, move: 15, r: "한 시간을 걸어 소집 장소에 도착했다." },
@@ -1663,7 +1673,7 @@ GROUP_SCENES.D = [
   {
     stage: "사흘째 07:00",
     alert: "지역예비군·민방위 대원 소집 안내 (대피소 안내 방송)",
-    story: "확성기로 지역예비군·민방위 소집 방송이 울렸다. 집결지인 주민센터까지는 걸어서 20분이다.",
+    story: "집결지인 주민센터까지는 걸어서 20분이다.",
     thought: "부대가 아니라 지금 머무는 동네를 지키는 일이라는데…",
     actions: [
       { t: "행선지를 적어 남기고 주민센터 집결지로 출발한다", p: 9, move: 8, r: "제때 도착해 명부에 이름을 올리고 임무를 받았다." },
@@ -2602,6 +2612,7 @@ let navState = { game: false, back: false, primary: null };
 let navConfirm = null, navConfirmTimer = null;
 function setNav(state) {
   navState = { game: false, back: false, primary: null, ...state };
+  if (document.body.classList.contains("packing")) { const t = document.getElementById("toast"); t.classList.remove("show"); t.hidden = true; }   // 가방 싸기 팝업이 다음 화면에 남지 않게
   document.body.classList.remove("packing");   // 가방 싸기 화면만 한 화면 배치 (renderPack이 다시 붙임)
   backGuard(navState.game);
   clearNavConfirm();
@@ -3052,7 +3063,7 @@ function metersHtml(mode, extra = "") {
         ? `<span class="note">${used}/${BAG_COLS * BAG_ROWS}칸</span><span class="timer${timeLeft <= 10 ? " hurry" : ""}" id="timer">${timeLeft}</span>`
         : `<div class="meter-col">${healMiniHtml()}<div class="meter hpm" data-hp="${hp}"><span>❤️ <b class="hpnum">${hp}</b></span><div class="track"><div class="ghost ${hpCls}" style="width:${hp}%"></div><div class="fill ${hpCls}" style="width:${hp}%"></div></div></div></div>`}
     </div>
-    ${mode === "pack" ? `${packBarHtml()}<p class="note">${kg > SAFE_KG ? "⚠ 6kg를 넘었어요. 움직일 때마다 체력이 더 빨리 닳아요." : "6kg까지는 가볍게 움직일 수 있어요. 빨리 끝내면 ⚡ 보너스!"}</p>` : ""}
+    ${mode === "pack" ? `${packBarHtml()}<p class="note">${kg > SAFE_KG ? "⚠ 6kg를 넘었어요. 움직일 때마다 체력이 더 빨리 닳아요." : "6kg까지는 가볍게 움직일 수 있어요."}</p>` : ""}
     ${mode === "scene" ? urgentHtml() : ""}
     ${extra}
   </div>`;
@@ -3574,7 +3585,7 @@ function bundleCardHtml(b) {
         <button type="button" class="bb-whole" data-bwhole="${b.id}" aria-label="${b.name} 전부 넣기" ${taken ? "disabled" : ""}>📦 전부</button>
       </div>`;
   }
-  const status = whole ? "✓ 전부 넣음" : taken ? `${left}개 남음` : "";   // 칸·무게는 안 적음 (이름에 개수가 있음)
+  const status = !whole && taken ? `${left}개 남음` : "";   // 칸·무게는 안 적음 (이름에 개수가 있음)
   return `<button class="item-card" id="item-${b.id}" data-bundle="${b.id}" ${off ? "disabled" : ""}>
       <span class="emo">${b.emo}</span>
       <span style="min-width:0"><span class="name">${b.name}</span><span class="size">${status}</span></span>
@@ -3618,7 +3629,7 @@ function renderPack(message = "") {
           if (it.bundle) return bundleCardHtml(it);
           return `<button class="item-card" id="item-${id}" data-item="${id}" ${inBag ? "disabled" : ""}>
             <span class="emo">${it.emo}</span>
-            <span style="min-width:0"><span class="name">${it.name}</span>${inBag ? `<span class="size">✓ 넣음</span>` : ""}</span>
+            <span style="min-width:0"><span class="name">${it.name}</span></span>
           </button>`;
         }).join("")}
       </div>
@@ -4016,7 +4027,7 @@ function renderScene(index) {
     <p class="stage">${s.stage}</p>
     ${invHtml(index)}
     ${notice && notice.img && EP_IMG[notice.img] ? `<img class="ep-art bf-art" src="${EP_IMG[notice.img]}" alt="">` : EP_IMG[s.imgKey] ? `<img class="ep-art" src="${EP_IMG[s.imgKey]}" alt="">` : s.cut ? `<div class="cut" aria-hidden="true"><span class="emo">${s.cut}</span>${s.bubble ? `<span class="bubble">${s.bubble}</span>` : ""}</div>` : ""}
-    ${s.announce ? `<p class="announce">📢 안내방송 “${s.announce}”</p>` : ""}
+    ${s.announce && !s.alert && !/방송/.test(s.story) ? `<p class="announce">📢 안내방송 “${s.announce}”</p>` : ""}
     ${notice && !notice.moved ? `<p class="notice ${notice.up ? "up" : "down"}">${notice.text}</p>` : ""}
     ${s.siren ? `<p class="siren-tag"><span class="siren-dot"></span>${s.siren}</p>` : ""}
     ${s.alert ? `<div class="alert-card"><span class="head">긴급 알림 · 가상 상황</span><span>${s.alert}</span></div>` : ""}
@@ -4039,21 +4050,11 @@ function renderScene(index) {
       ${shownCombos.map(({ c, k, id }) => `<button class="choice combo-choice" data-combo="${k}">
           <span class="key">🎒</span><span>${c.t}<small>가방의 ${jo(nameOf(id), "을", "를")} 같이 써요</small></span>
         </button>`).join("")}
-      ${owned.length ? `<p class="or-line"><span>또는 물건으로 해결하기</span></p>
-        <button class="tool-open${pickerOpen ? " open" : ""}" id="open-picker" aria-expanded="${pickerOpen}">
-          <span class="key">🎒</span><span>${pickerOpen ? "가방 닫기" : "가방 열기"}<small>${hardMode ? "가방 속 물건을 꺼내 쓸 수 있어요" : hasItemAnswer ? `💡 힌트: ${s.itemHint || "지금 상황에 맞는 물건"}` : "물·음식을 먹거나 가방을 살펴봐요"}</small></span>
-        </button>
-        ${pickerOpen ? `<div class="picker${dropMode ? " drop" : ""}">
-          <p class="note">${dropMode ? "🗑 <strong>버릴 물건</strong>을 골라 한 번 더 누르면 버려요" : "물건을 고르고 <strong>한 번 더 누르면</strong> 써요 · 물·음식은 내가 먹어서 체력을 채워요"}</p>
-          ${bagHtml("use")}
-          <button class="btn ghost small drop-toggle" id="drop-toggle" type="button">${dropMode ? "✓ 버리기 끝" : "🗑 물건 버리기"}</button>
-        </div>` : ""}` : `<p class="note">🎒 가방이 비어 있다…</p>`}
     </div>
     <p class="msg${sceneMsgOk ? " ok" : ""}" id="scene-msg">${sceneMsg}</p>`;
 
   clampFix(live);
   staggerOptions(live, index);
-  { const inv = document.getElementById("inv-sum"); if (inv) inv.addEventListener("toggle", () => { invOpen = inv.open; }); }
   setNav({ game: true, back: true });
   live.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => {
     const a = s.actions[Number(b.dataset.a)];
@@ -4134,7 +4135,7 @@ document.addEventListener("click", e => { if (e.target.closest("#quick-heal")) q
 function takeLoot(index, id) {
   const s = scenes[index], it = ITEM_BY_ID[id];
   const msg = addItem(id);
-  if (msg) { pickerOpen = true; dropMode = true; pendingUse = null; toast(`${msg} 아래 가방에서 버릴 물건을 골라 자리를 만든 뒤 다시 챙겨 보세요.`, false); }
+  if (msg) { pickerOpen = true; dropMode = true; pendingUse = null; toast(`${msg} 위 내 물건에서 버릴 물건을 골라 자리를 만든 뒤 다시 챙겨 보세요.`, false); }
   else {
     dropMode = false;   // 자리가 생겨 챙겼으면 버리기 모드는 끝 (안 끄면 다음에 누른 물건이 버려짐)
     if (it.uses) uses[id] = it.uses;
@@ -4147,15 +4148,19 @@ function takeLoot(index, id) {
 // 🎒 쓴 물건 기록 (장면 위 '내 물건'에서 보여 줌). 다시 고르기로 앞 장면에 가면 그 뒤 기록은 지움
 let usedLog = [], invOpen = false;
 function logUse(id, index) { usedLog.push({ id, idx: index, st: scenes[index] ? scenes[index].stage : "" }); }
+// 장면 위 '🎒 내 물건' 막대: 누르면 바로 밑에 가방이 열림(그림 위를 덮음), 한 번 더 누르면 접힘. 옆에 짧은 힌트
 function invHtml(index) {
   usedLog = usedLog.filter(u => u.idx <= index);
-  const own = {};
-  [...placed.map(p => p.id), ...pocket].forEach(id => { const n = nameOf(id); own[n] = (own[n] || 0) + (ITEM_BY_ID[id].uses > 1 ? uses[id] || 1 : 1); });
-  const ownList = Object.entries(own);
-  return `<details class="inv-sum" id="inv-sum"${invOpen ? " open" : ""}><summary>🎒 내 물건 <small>가진 것 ${ownList.length} · 쓴 것 ${usedLog.length}</small></summary>
-    <p class="inv-h">가진 것</p>${ownList.length ? `<div class="inv-chips">${ownList.map(([n, c]) => `<span class="inv-chip">${n}${c > 1 ? ` <b>×${c}</b>` : ""}</span>`).join("")}</div>` : `<p class="note">가방이 비어 있다</p>`}
-    <p class="inv-h">쓴 것</p>${usedLog.length ? `<div class="inv-chips">${usedLog.map(u => `<span class="inv-chip used">${nameOf(u.id)} <small>${u.st.split(" · ")[0]}</small></span>`).join("")}</div>` : `<p class="note">아직 쓴 물건이 없다</p>`}
-  </details>`;
+  const s = scenes[index], empty = !placed.length && !pocket.length;
+  const hint = hardMode || !s || !Object.keys(s.items || {}).length ? "" : `힌트: ${s.itemHint || "지금 상황에 맞는 물건"}`;
+  return `<div class="inv-wrap">
+    <button class="inv-bar${pickerOpen ? " open" : ""}" id="open-picker" type="button" aria-expanded="${pickerOpen}" ${empty ? "disabled" : ""}>🎒 내 물건 <span class="inv-arrow">${pickerOpen ? "▴" : "▾"}</span>${empty ? `<small>가방이 비어 있다</small>` : hint ? `<small>${hint}</small>` : ""}</button>
+    ${pickerOpen && !empty ? `<div class="inv-panel picker${dropMode ? " drop" : ""}">
+      <p class="note">${dropMode ? "🗑 <strong>버릴 물건</strong>을 골라 한 번 더 누르면 버려요" : "물건을 고르고 <strong>한 번 더 누르면</strong> 써요 · 물·음식은 먹어서 체력을 채워요"}</p>
+      ${bagHtml("use")}
+      <button class="btn ghost small drop-toggle" id="drop-toggle" type="button">${dropMode ? "✓ 버리기 끝" : "🗑 물건 버리기"}</button>
+    </div>` : ""}
+  </div>`;
 }
 function consume(id) {
   // 여러 병짜리(perCell)는 한 병 쓰면 칸도 하나 줄어듦
