@@ -1028,6 +1028,9 @@ body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 
 .res-in { animation: resIn .6s ease both; }
 @keyframes resIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .res-in { animation: none; } }
+/* 묶음 물건을 누르면 두 칸 너비로 펼쳐서 "+1개 / 전부"가 겹치지 않게 */
+body.packing .furn-items .bundle-card.pick { grid-column: span 2; grid-template-columns: 1fr 1fr; justify-items: stretch; align-items: stretch; padding: 5px; gap: 5px; }
+body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; font-size: .8rem; }
 </style>
 
 <header class="topbar">
@@ -1110,7 +1113,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.12";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.13";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
