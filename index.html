@@ -1046,6 +1046,17 @@ body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; f
 .packed { display: grid; gap: 8px; }
 .packed .bag, .packed .pocket { max-width: min(420px, calc(46vh * 1.2)); }
 .packed p { margin: 0; }
+/* 프롤로그 건너뛰기: 페이지 맨 위 ⌂·소리 사이 자리(고정 아님, 스크롤하면 같이 올라감) */
+.pro-skip { position: absolute !important; top: calc(4px + env(safe-area-inset-top, 0px)) !important; left: 50% !important; transform: translateX(-50%) !important; height: 34px; min-height: 34px; padding: 0 14px; white-space: nowrap; box-shadow: none !important; z-index: 29; }
+/* 그 뒤: 위아래 빈 공간 없이 */
+.after-page { min-height: 0 !important; align-content: start !important; padding: 12px 4px 4px !important; gap: 10px !important; }
+.after-text { min-height: 0 !important; }
+.placed.busy { opacity: .4; }
+.bag.use .rot:disabled { cursor: default; }
+/* ↓ 선택지 더 있어요 */
+.opt-more { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 22; font: inherit; font-size: .84rem; font-weight: 800; color: #1d211b; background: var(--accent); border: 0; border-radius: 99px; padding: 8px 16px; box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: pointer; animation: moreBob 1.6s ease-in-out infinite; }
+.opt-more[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .opt-more { animation: none; } }
 </style>
 
 <header class="topbar">
@@ -1128,7 +1139,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.16";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.17";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -1363,7 +1374,7 @@ const SHELTER_ROUTE = [
     items: {
       light: { p: 10, r: "손전등을 켰다. 발밑과 비상구 표시가 보인다. 넘어진 사람도 일으켜 줬다." },
       battery: { p: 7, r: "보조배터리를 꽂고 휴대폰 플래시를 켰다. 배터리 걱정은 덜었다." },
-      lighter: { p: 3, r: "라이터를 켰지만 금방 손이 뜨거워져 오래 켤 수 없었다. 사람 많은 지하에서 불을 켜니 주변도 불안해했다." }
+      lighter: { p: 3, r: "라이터를 켰지만 불이 너무 작아서 발밑이 잘 보이지 않았다. 금방 손도 뜨거워졌다." }
     },
     tip: "비상용품에 손전등이 들어가는 이유예요. 라이터·촛불은 화재 위험이 있고, 공습 중 밤에는 불빛이 밖으로 새지 않게 막아야 해요(차광). 휴대폰은 통신이 돌아올 때를 위해 배터리를 아껴 두세요.",
     src: ["s2", "s3"]
@@ -3105,7 +3116,7 @@ function metersHtml(mode, extra = "") {
     </div>
     ${mode === "pack" ? `${packBarHtml()}<p class="note">${kg > SAFE_KG ? "⚠ 6kg를 넘었어요. 움직일 때마다 체력이 더 빨리 닳아요." : "6kg까지는 가볍게 움직일 수 있어요."}</p>` : ""}
     ${mode === "scene" ? urgentHtml() : ""}
-    ${mode === "scene" ? (() => { const lv = document.getElementById("live"); return lv && lv.querySelector(".options") ? invHtml(Number(lv.dataset.idx)) : ""; })() : ""}
+    ${mode === "scene" ? (() => { const lv = document.getElementById("live"); return lv && (lv.querySelector(".options") || itemBusy) ? invHtml(Number(lv.dataset.idx)) : ""; })() : ""}
     ${extra}
   </div>`;
 }
@@ -3299,7 +3310,7 @@ function nudgeCheck() {
   const old = document.getElementById("scroll-nudge"); if (old) old.classList.remove("on");
   nudgeTimer = setTimeout(() => {
     if (document.getElementById("mini-layer")) return;
-    const target = document.querySelector("#live .options, .pro-page:not(.shown), .howto-page:not(.shown)");
+    const target = document.querySelector(".pro-page:not(.shown), .howto-page:not(.shown)");
     if (!target || target.getBoundingClientRect().top < innerHeight * 0.85) return;
     let el = document.getElementById("scroll-nudge");
     if (!el) { el = document.createElement("div"); el.id = "scroll-nudge"; el.className = "scroll-nudge"; el.setAttribute("aria-hidden", "true"); el.textContent = "아래로 스크롤 ↓"; document.body.appendChild(el); }
@@ -3610,7 +3621,7 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const inner = solo ? `<span class="emo">${item.emo}</span>` : `<span class="emo">${item.emo}</span><span class="nm${nmCls}">${nmFull}</span>`;
     const usesTag = hasUses && (solo || !inlineUses) ? `<span class="uses">×${uses[p.id]}</span>` : solo && item.perCell && uses[p.id] > 1 ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}"><div class="rot">${inner}</div></div>`;
-    if (mode === "use") return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
+    if (mode === "use") return `<div class="placed${solo ? " solo" : row ? " row" : ""}${itemBusy === p.id ? " busy" : ""}" title="${label}" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" ${itemBusy ? "disabled" : ""} aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
     return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}">
       <button class="rot" id="rot-${p.id}" data-rot="${p.id}" aria-label="${item.name} 회전">${inner}</button>
       <button class="del" id="del-${p.id}" data-del="${p.id}" aria-label="${item.name} 빼기">✕</button>
@@ -3922,7 +3933,7 @@ function enterSceneBase(s) {
 function startScene(index) {
   snapshots[index] = JSON.stringify({ hp, placed, pocket, uses, flags, route, results, traits, lootTaken: [...lootTaken] });
   stopUrgent(); stopMini();
-  tried = []; penalty = 0; sceneMsg = ""; notice = null; pickerOpen = false; dropMode = false; pendingUse = null;
+  tried = []; penalty = 0; sceneMsg = ""; notice = null; pickerOpen = false; dropMode = false; pendingUse = null; itemBusy = null;
   const hpIn = hp;
   notice = enterScene(scenes[index]);
   // 장면에 들어서며 생긴 일(추위·돌발 사건 등)은 바로 앞 선택의 결과 칸에 이어 적음 → 체력 계산이 한곳에서 맞아떨어지게
@@ -4125,6 +4136,27 @@ function toast(text, ok) {
   toastTimer = setTimeout(() => { el.classList.remove("show"); setTimeout(() => { el.hidden = true; }, 250); }, 2600);
 }
 
+
+// ↓ 선택지 더 있어요 (지금 장면의 마지막 선택지가 화면 아래로 가려져 있을 때만)
+const optMore = document.createElement("button");
+optMore.type = "button"; optMore.id = "opt-more"; optMore.className = "opt-more"; optMore.hidden = true; optMore.textContent = "↓ 선택지 더 있어요";
+document.body.appendChild(optMore);
+function lastOption() {
+  const lv = document.getElementById("live");
+  if (!lv || lv.querySelector(".outcome") || !document.body.classList.contains("in-game") || document.getElementById("mini-layer")) return null;
+  return [...lv.querySelectorAll(".options > .choice")].pop() || null;
+}
+function updOptMore() {
+  const o = lastOption();
+  optMore.hidden = !(o && o.getBoundingClientRect().bottom > innerHeight - 4);
+}
+optMore.addEventListener("click", () => {
+  const o = lastOption(); if (!o) return;
+  window.scrollTo({ top: o.getBoundingClientRect().bottom + scrollY - innerHeight + 16, behavior: "smooth" });
+});
+addEventListener("scroll", updOptMore, { passive: true });
+addEventListener("resize", updOptMore);
+setInterval(updOptMore, 700);   // 선택지가 하나씩 나타나거나 결과 칸이 붙는 등 화면이 바뀔 때도
 // ───────── 게임 중 물건 줍기 ─────────
 // 장면의 loot: [{ id, from(어디서), loc(이 장소에서만) }]. 고르는 선택지와 별개라 장면이 끝나지 않음
 const lootKey = (s, id) => s.stage + "|" + id;
@@ -4183,14 +4215,14 @@ function takeLoot(index, id) {
 }
 
 // 🎒 쓴 물건 기록 (장면 위 '내 물건'에서 보여 줌). 다시 고르기로 앞 장면에 가면 그 뒤 기록은 지움
-let usedLog = [], invOpen = false;
+let usedLog = [], invOpen = false, itemBusy = null;   // itemBusy: 이 장면에서 쓰는 중인 물건(라디오 미니게임 등)
 function logUse(id, index) { usedLog.push({ id, idx: index, st: scenes[index] ? scenes[index].stage : "" }); }
 // 장면 위 '🎒 내 물건' 막대: 누르면 바로 밑에 가방이 열림(그림 위를 덮음), 한 번 더 누르면 접힘. 옆에 짧은 힌트
 function invHtml(index) {
   usedLog = usedLog.filter(u => u.idx <= index);
   const s = scenes[index], empty = !placed.length && !pocket.length;
   const owned = [...placed.map(q => q.id), ...pocket];
-  const glow = !hardMode && !pickerOpen && !results[index] && owned.some(id => sceneHit(s, id));   // 쓸 물건이 있으면 반짝(무슨 물건인지는 안 알려 줌)
+  const glow = !hardMode && !pickerOpen && !itemBusy && !results[index] && owned.some(id => sceneHit(s, id));   // 쓸 물건이 있으면 반짝(무슨 물건인지는 안 알려 줌)
   const hint = glow ? "쓸 만한 물건이 있어요" : "";
   return `<div class="inv-wrap">
     <button class="inv-bar${pickerOpen ? " open" : ""}${glow ? " glow" : ""}" id="open-picker" type="button" aria-expanded="${pickerOpen}" ${empty ? "disabled" : ""}>🎒 내 물건 <span class="inv-arrow">${pickerOpen ? "▴" : "▾"}</span>${empty ? `<small>가방이 비어 있다</small>` : hint ? `<small>${hint}</small>` : ""}</button>
@@ -4243,8 +4275,10 @@ function useItem(index, id) {
 }
 function applyUse(index, id, act) {
   pendingUse = null;
+  if (act !== "cancel" && itemBusy) return;   // 이미 물건을 쓰는 중
   if (act === "cancel") { rerender(() => renderScene(index)); return; }
   const s = scenes[index], it = ITEM_BY_ID[id], hit = sceneHit(s, id);
+  if (act === "scene" && hit) { itemBusy = id; pickerOpen = false; const fm = document.getElementById("feed-meters"); if (fm) fm.innerHTML = metersHtml("scene"); }   // 가방 접고 쓰는 중 표시
   if (act === "scene" && hit && hit.combo) { logUse(id, index); if (hit.useId) consume(hit.useId); resolve(index, hit); return; }
   if (act === "scene" && hit) {
     logUse(id, index); consume(id);
@@ -5580,7 +5614,7 @@ function showAfter(ending) {
     <p class="after-text" id="after-text" aria-label="${text}"></p>
     <button class="nav-primary highlight" id="after-next" hidden>결과 보기 →</button>
   </section>`;
-  setNav({ game: true, back: true });
+  setNav({ game: true });   // 그 뒤 화면엔 ⌂·소리 버튼 없음
   window.scrollTo(0, 0);
   const box = document.getElementById("after-text"), next = document.getElementById("after-next");
   const chars = [...text];
