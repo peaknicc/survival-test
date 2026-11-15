@@ -1059,6 +1059,13 @@ body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; f
 @media (prefers-reduced-motion: reduce) { .opt-more { animation: none; } }
 /* 프롤로그 건너뛰기: 위쪽 ⌂·소리 사이에 고정 (사용자 확정) */
 .pro-skip { position: fixed !important; }
+/* 방금 담은 물건이 가방에 '뾰잉' */
+.placed.pop .rot, .pslot.pop .rot { animation: popIn .38s cubic-bezier(.3, 1.7, .5, 1) both; }
+@keyframes popIn { 0% { transform: scale(.55); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .placed.pop .rot, .pslot.pop .rot { animation: none; } }
+/* 건너뛰기를 ⌂·소리 버튼과 같은 높이·줄에 */
+.pro-skip { box-sizing: border-box; height: 34px !important; min-height: 34px !important; margin: 0 !important; padding: 0 14px !important; display: inline-flex !important; align-items: center; justify-content: center; line-height: 1 !important; font-size: .84rem !important; }
+.pro-skip { border-radius: 12px !important; border: 1.5px solid var(--line) !important; background: var(--surface) !important; font-weight: 700; }
 </style>
 
 <header class="topbar">
@@ -1141,7 +1148,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.19";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.20";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2636,6 +2643,17 @@ const Sound = {
     o.connect(g).connect(this.master);
     o.start(t); o.stop(t + 0.13);
   },
+  // 가방에 물건을 담을 때 '뚝'
+  put() {
+    if (!this.on || !this.ensure()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(230, t); o.frequency.exponentialRampToValueAtTime(85, t + 0.09);
+    g.gain.setValueAtTime(VOLUME * 4, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + 0.14);
+  },
   toggle() {
     this.on = !this.on;
     if (this.on) this.reset();   // 켤 때는 늘 새 장치로
@@ -3593,7 +3611,7 @@ function pocketHtml(mode, list = pocket) {
     const id = list[i];
     if (!id) { slots += `<div class="pslot"></div>`; continue; }
     const it = ITEM_BY_ID[id];
-    if (mode === "edit") slots += `<div class="pslot"><button class="rot" title="${it.name}" aria-label="${it.name}">${it.emo}<span class="nm">${shortName(it)}</span></button><button class="del" id="pdel-${id}" data-pdel="${id}" aria-label="${it.name} 빼기">✕</button></div>`;
+    if (mode === "edit") slots += `<div class="pslot${lastAdded === id ? " pop" : ""}"><button class="rot" title="${it.name}" aria-label="${it.name}">${it.emo}<span class="nm">${shortName(it)}</span></button><button class="del" id="pdel-${id}" data-pdel="${id}" aria-label="${it.name} 빼기">✕</button></div>`;
     else if (mode === "use") slots += `<div class="pslot"><button class="rot${pendingUse === id ? " armed" : ""}" id="use-${id}" data-use="${id}" title="${it.name}" aria-label="${it.name} 꺼내 쓰기">${it.emo}<span class="nm">${shortName(it)}</span></button></div>`;
     else slots += `<div class="pslot"><div class="rot" title="${it.name}">${it.emo}<span class="nm">${shortName(it)}</span></div></div>`;
   }
@@ -3625,7 +3643,7 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const usesTag = hasUses && (solo || !inlineUses) ? `<span class="uses">×${uses[p.id]}</span>` : solo && item.perCell && uses[p.id] > 1 ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}"><div class="rot">${inner}</div></div>`;
     if (mode === "use") return `<div class="placed${solo ? " solo" : row ? " row" : ""}${itemBusy === p.id ? " busy" : ""}" title="${label}" style="${style}"><button class="rot${pendingUse === p.id ? " armed" : ""}" id="use-${p.id}" data-use="${p.id}" ${itemBusy ? "disabled" : ""} aria-label="${item.name} 꺼내 쓰기">${inner}</button>${usesTag}</div>`;
-    return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}">
+    return `<div class="placed${solo ? " solo" : row ? " row" : ""}${lastAdded === p.id ? " pop" : ""}" title="${label}" style="${style}">
       <button class="rot" id="rot-${p.id}" data-rot="${p.id}" aria-label="${item.name} 회전">${inner}</button>
       <button class="del" id="del-${p.id}" data-del="${p.id}" aria-label="${item.name} 빼기">✕</button>
     </div>`;
@@ -3635,6 +3653,7 @@ function bagHtml(mode, list = placed, pk = pocket) {
 }
 
 // 묶음 카드: 다른 물건과 같은 크기. 누르면 그 자리에서 '+1개 / 전부' 두 버튼으로 바뀜 (크기는 그대로라 화면이 안 밀림)
+let lastAdded = null;   // 방금 담은 물건(가방 안에서 한 번 튀어 들어가는 효과)
 function bundleCardHtml(b) {
   // 묶음째 넣기는 없앰(펼쳐지며 옆 카드가 밀려서). 누를 때마다 낱개 하나씩, 이름 밑엔 남은 개수
   const u = ITEM_BY_ID[b.bundle.unit], left = b.bundle.count - unitsTaken(b), whole = has(b.id);
@@ -3691,6 +3710,7 @@ function renderPack(message = "") {
   setNav({ game: true, back: true });
   document.body.classList.add("packing");
   if (message) toast(message, false);   // 자리 없음 등은 화면 사이에 끼우지 않고 팝업으로
+  lastAdded = null;   // 뾰잉은 담은 그때 한 번만
   {   // 물건 칸 안에서만 스크롤될 때: 아래에 더 있다는 표시 (끝까지 내리면 사라짐)
     const box = app.querySelector(".furn-items"), list = app.querySelector(".furn-list");
     if (box && list) {
@@ -3703,11 +3723,16 @@ function renderPack(message = "") {
 
   app.querySelectorAll("[data-room]").forEach(b => b.addEventListener("click", () => { openRoom = b.dataset.room; openFurn = null; bundlePick = null; rerender(() => renderPack("")); }));
   app.querySelectorAll("[data-furn]").forEach(b => b.addEventListener("click", () => { openFurn = b.dataset.furn; bundlePick = null; rerender(() => renderPack("")); }));
-  app.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => { const m = addItem(b.dataset.item); rerender(() => renderPack(m)); }));
+  app.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", e => {
+    const id = b.dataset.item, m = addItem(id);
+    if (!m) { floatPlus(e, `+1 ${ITEM_BY_ID[id].emo}`); Sound.put(); lastAdded = id; }   // 1개짜리도 +1 · 뚝 · 뾰잉
+    rerender(() => renderPack(m));
+  }));
   app.querySelectorAll("[data-bundle]").forEach(b => b.addEventListener("click", e => {
     const B = ITEM_BY_ID[b.dataset.bundle], before = unitsTaken(B);
+    const nP = placed.length, nK = pocket.length;
     const m = addUnits(B.id, 1);
-    if (unitsTaken(B) > before) floatPlus(e, `+1 ${ITEM_BY_ID[B.bundle.unit].emo}`);
+    if (unitsTaken(B) > before) { floatPlus(e, `+1 ${ITEM_BY_ID[B.bundle.unit].emo}`); Sound.put(); lastAdded = placed.length > nP ? placed[placed.length - 1].id : pocket.length > nK ? pocket[pocket.length - 1] : null; }
     rerender(() => renderPack(m));
   }));
   app.querySelectorAll("[data-bunit]").forEach(b => b.addEventListener("click", e => {
