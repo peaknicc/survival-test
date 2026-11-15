@@ -1005,6 +1005,10 @@ body.in-game .progress, body.in-game .stage { margin: 0; }
 body.in-game .inv-sum { padding: 2px 10px; }
 body.in-game .inv-sum summary { padding: 3px 0; font-size: .84rem; }
 body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 0; }
+/* 선택지가 하나씩 나타남 */
+.options > .stg { opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
+.options > .stg.stg-in { opacity: 1; transform: none; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .options > .stg { transition: none; transform: none; } }
 </style>
 
 <header class="topbar">
@@ -1229,7 +1233,8 @@ const SUBWAY_CARRIED = {
 };
 const subwayCarried = () => gender === "F" ? SUBWAY_CARRIED.C : SUBWAY_CARRIED.M;
 const SUBWAY_ROOMS = [{ id: "mine", name: "내 소지품", emo: "🎒" }];
-let SUBWAY_FURNITURE = [{ id: "s-mine", room: "mine", name: "들고 있던 물건 (뺀 걸 다시 넣을 수 있어요)", items: SUBWAY_CARRIED.M }];
+// 한 가구에 물건은 8개까지(물건 칸이 스크롤되지 않게) → 들고 있던 물건을 둘로 나눔
+let SUBWAY_FURNITURE = [{ id: "s-mine", room: "mine", name: "가방 속", items: SUBWAY_CARRIED.M.slice(0, 6) }, { id: "s-pocket", room: "mine", name: "주머니 속", items: SUBWAY_CARRIED.M.slice(6) }];
 
 // ───────── 프롤로그 ─────────
 const PROLOGUE = [
@@ -1786,7 +1791,7 @@ function locPool(withLoot) {
 function setupLocForGroup() {
   const items = subwayCarried();
   LOCS.subway.carried = items;
-  SUBWAY_FURNITURE[0].items = items;
+  SUBWAY_FURNITURE[0].items = items.slice(0, 6); SUBWAY_FURNITURE[1].items = items.slice(6);
 }
 // 장면의 아이템 키(id 또는 분류)를 이 장소에서 구할 수 있는 실제 물건 id로 바꿈. 없으면 null
 function poolItemFor(key) {
@@ -3208,7 +3213,7 @@ function resetRun() {
   applyMode();
   testMode = false; forcedEnding = null; forceMaster = false;
   savedThisRun = false; lootTaken = new Set(); traits = { coop: 0, duty: 0, itemUses: 0, info: 0, coopP: 0, coopN: 0, dutyP: 0, dutyN: 0, bold: 0, calm: 0 };
-  snapshots = {}; usedLog = []; invOpen = false; rewound = false; packUsed = 0; miniLog = {}; hardOrder = new Map();
+  snapshots = {}; usedLog = []; invOpen = false; revealedScenes.clear(); rewound = false; packUsed = 0; miniLog = {}; hardOrder = new Map();
   setupLocForGroup();
   route = null; flags = {}; results = []; placed = []; startPlaced = []; pocket = []; startPocket = []; uses = {}; hp = hardMode ? HARD_START_HP : 100; hpShown = null; storyOpen.clear();
   openRoom = LOCS[startLoc].rooms[0].id; openFurn = null; bundlePick = null;
@@ -3922,6 +3927,7 @@ function beginScene(index) {
   let started = false;   // 스크롤 감지와 0.8초 뒤 확인이 둘 다 걸려도 한 번만 시작
   const go = () => {
     if (started || document.getElementById("live") !== live || !live.querySelector(".options")) return;
+    if (live.dataset.revealed === "0") { live.addEventListener("revealed", go, { once: true }); return; }   // 선택지가 다 나온 뒤에 카운트다운
     started = true;
     startUrgent(index);
     const m = document.getElementById("feed-meters"); if (m) m.innerHTML = metersHtml("scene");
@@ -3959,6 +3965,25 @@ function feedLive(index) {
     reveal(live);
   }
   return live;
+}
+// 선택지는 장면 글을 먼저 보게 1초 뒤부터 하나씩(0.15초 간격). 화면 아무 데나 누르면 바로 다 나옴. 긴박한 장면의 카운트다운은 다 나온 뒤에 시작
+const revealedScenes = new Set();
+function staggerOptions(live, index) {
+  if (revealedScenes.has(index)) return;
+  const items = [...live.querySelectorAll(".options > *")];
+  if (!items.length) return;
+  live.dataset.revealed = "0";
+  items.forEach(el => el.classList.add("stg"));
+  const timers = [];
+  const all = () => {
+    timers.forEach(clearTimeout); document.removeEventListener("pointerdown", all, true);
+    if (revealedScenes.has(index) && live.dataset.revealed === "1") return;
+    items.forEach(el => el.classList.add("stg-in"));
+    revealedScenes.add(index); live.dataset.revealed = "1";
+    live.dispatchEvent(new Event("revealed"));
+  };
+  items.forEach((el, i) => timers.push(setTimeout(() => { el.classList.add("stg-in"); if (i === items.length - 1) all(); }, 1000 + i * 150)));
+  document.addEventListener("pointerdown", all, true);
 }
 // 긴 상황 글은 세 줄까지만 보이고 "더 보기"로 펼침 (펼친 장면은 다시 그려도 펼친 채로)
 const storyOpen = new Set();
@@ -4027,6 +4052,7 @@ function renderScene(index) {
     <p class="msg${sceneMsgOk ? " ok" : ""}" id="scene-msg">${sceneMsg}</p>`;
 
   clampFix(live);
+  staggerOptions(live, index);
   { const inv = document.getElementById("inv-sum"); if (inv) inv.addEventListener("toggle", () => { invOpen = inv.open; }); }
   setNav({ game: true, back: true });
   live.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => {
@@ -4864,8 +4890,8 @@ function resolve(index, choice) {
     setNav({ game: true, back: true });
     startScene(index + 1);
   }
-  // 결과 칸을 화면 가운데로 (결과가 화면보다 길면 윗부분부터 읽게 위에 맞춤). 다음 장면은 아래에 살짝 걸쳐 보임
-  if (out) setTimeout(() => { const tall = out.getBoundingClientRect().height > innerHeight * 0.55; out.scrollIntoView({ behavior: "smooth", block: tall ? "start" : "center" }); }, 60);
+  // 결과 칸 윗부분을 위쪽 고정 줄(체력바) 바로 밑에 맞춤 → 결과 아래로 다음 장면이 많이 보임
+  if (out) setTimeout(() => { const st = document.querySelector("#feed-meters .sticky"); const top = out.getBoundingClientRect().top + scrollY - (st ? st.getBoundingClientRect().height : 0) - 8; window.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); }, 60);
   else window.scrollTo(0, 0);
   nudgeCheck();
 }
