@@ -150,7 +150,7 @@ body.packing #nav-home:not(.confirm) .nh-tx { display: none; }
 .pack-done b { font-size: 1.1rem; }
 body.packing .pack-hint { margin: 0; font-size: .72rem; }
 body.packing .furn-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-body.packing .furn-items { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 6px; padding: 6px; }
+body.packing .furn-items { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 6px; padding: 6px; }
 /* 카드는 grid로(아이폰에서 flex 버튼이 눌려 글자가 넘치던 것) */
 body.packing .furn-items .item-card { display: grid; justify-items: center; align-content: start; text-align: center; gap: 1px; min-height: 0; height: auto; padding: 5px 3px; }
 body.packing .furn-items .item-card .emo { font-size: 1.5rem; line-height: 1.15; }
@@ -784,8 +784,8 @@ body.packing .toast { top: calc(40px + env(safe-area-inset-top, 0px)); bottom: a
 .fb-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .fb-tab { font: inherit; font-weight: 700; color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; cursor: pointer; min-height: 44px; }
 .fb-tab.on { border-color: var(--accent); background: var(--accent-soft); }
-.pro-skip { position: fixed; z-index: 26; top: calc(44px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; background: var(--surface); box-shadow: 0 4px 14px rgba(0,0,0,.35); border-radius: 99px; transition: opacity .25s, transform .25s; }
-.pro-skip.gone { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+.pro-skip { position: fixed; z-index: 31; top: calc(4px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); height: 34px; min-height: 34px; padding: 0 14px; white-space: nowrap; width: auto; background: var(--surface); border-radius: 99px; transition: opacity .25s, transform .25s; }   /* 처음으로·소리 버튼 사이 */
+.pro-skip.gone { opacity: 0; transform: translate(-50%, -8px); pointer-events: none; }
 .notice-in { margin: 6px 0 0; padding-top: 6px; border-top: 1px dashed var(--line); font-size: .92rem; }
 .notice-in.down { color: var(--bad); }
 .notice-in.up { color: var(--good); }
