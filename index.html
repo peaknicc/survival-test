@@ -263,11 +263,15 @@ body.mini-open { overflow: hidden; }
 #sound-fab { right: max(12px, env(safe-area-inset-right, 0px)); }
 body:not(.in-game) #sound-fab { display: none; }
 body { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)) !important; }
-body.in-game { padding-top: calc(58px + env(safe-area-inset-top, 0px)) !important; }
-body.in-game::before { height: calc(54px + env(safe-area-inset-top, 0px)); }
+/* 게임 중 처음으로·소리: 모든 화면에서 작게(가방 싸기와 같게). 위쪽 고정 줄(메터)이 있으면 그 줄 양끝에, 없으면 맨 위에 40px만 비움 */
+body.in-game { padding-top: calc(4px + env(safe-area-inset-top, 0px)) !important; }
+body.in-game::before { height: env(safe-area-inset-top, 0px); }
+body.in-game #nav-home, body.in-game #sound-fab { top: calc(4px + env(safe-area-inset-top, 0px)); min-height: 34px; height: 34px; min-width: 34px; padding: 0 9px; box-shadow: none; }
+body.in-game #nav-home:not(.confirm) .nh-tx { display: none; }
+body.in-game .sticky .meters { padding-inline: 44px; min-height: 34px; }
+body.in-game:not(.packing) #app > :first-child:not(.sticky):not(#feed-meters) { margin-top: 40px; }
 body.in-game .topbar { display: none; }
-body.in-game .sticky { top: calc(54px + env(safe-area-inset-top, 0px)); }
-.mini-layer { padding-top: calc(58px + env(safe-area-inset-top, 0px)) !important; }
+body.in-game .sticky { top: env(safe-area-inset-top, 0px); padding-top: 2px; }
 .scroll-nudge { bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
 .res-home { width: 100%; margin-top: 8px; }
 .ending .end-no { color: var(--accent); }
@@ -278,7 +282,8 @@ body.in-game .sticky { top: calc(54px + env(safe-area-inset-top, 0px)); }
 .heal-mini.none { border-color: var(--bad); background: none; color: var(--bad); cursor: default; animation: none; }
 .mini-layer .heal-mini { display: none; }
 .mini-layer { padding-top: 0 !important; }
-.mini-layer .sticky { top: 0 !important; padding-top: calc(58px + env(safe-area-inset-top, 0px)); }
+.mini-layer .sticky { top: 0 !important; padding-top: calc(4px + env(safe-area-inset-top, 0px)); }
+.mini-layer .sticky .meters { padding-inline: 44px; min-height: 34px; }
 .mini-layer .urgent { display: none; }
 .meters:has(.heal-mini) { align-items: flex-end; }
 @media (prefers-reduced-motion: reduce) { .heal-mini { animation: none; } }
@@ -604,6 +609,8 @@ details.sec > summary { scroll-margin-top: 12px; }
   transition: opacity .2s, transform .2s; pointer-events: none;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* 가방 싸기: 자리 없음 등은 위 타이머 줄 바로 아래에 잠깐(가방·물건 칸을 안 가리게) */
+body.packing .toast { top: calc(40px + env(safe-area-inset-top, 0px)); bottom: auto; font-size: .82rem; padding: 8px 12px; width: min(86vw, 420px); }
 .toast.ok { border-left: 5px solid var(--good); }
 .toast.bad { border-left: 5px solid var(--bad); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
@@ -975,6 +982,8 @@ input, textarea, select { font-size: max(16px, 1em) !important; }
 /* 표지 찾기 카드: 누르는 순간 반응하게 — 그림이 터치를 가로채거나 길게 눌러 메뉴가 뜨지 않게 */
 .sg-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .sg-card img { pointer-events: none; -webkit-user-drag: none; }
+/* 앞주머니 이름은 두 줄까지 (연락처 메모 등) */
+.pslot .rot .nm { white-space: normal; word-break: keep-all; line-height: 1.05; text-align: center; }
 </style>
 
 <header class="topbar">
@@ -1057,43 +1066,43 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.9";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.10";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
 const ITEMS = [
   // 거실·공용
-  { id: "radio",    name: "휴대용 라디오",       emo: "📻", w: 2, h: 1, kg: 0.4, pts: 4, cat: "radio", why: "통신이 끊기면 정부 안내를 듣는 거의 유일한 방법" },
+  { id: "radio",    name: "라디오",       emo: "📻", w: 2, h: 1, kg: 0.4, pts: 4, cat: "radio", why: "통신이 끊기면 정부 안내를 듣는 거의 유일한 방법" },
   { id: "battery",  name: "보조배터리",          emo: "🔋", small: true, kg: 0.25, why: "통신은 안 돼도 휴대폰 플래시·연락처는 쓸 수 있어요", useful: true },
   { id: "laptop",   name: "노트북",             emo: "💻", w: 3, h: 2, kg: 1.6, why: "인터넷이 끊기면 쓸모가 거의 없어요" },
-  { id: "game",     name: "휴대용 게임기",        emo: "🎮", w: 1, h: 1, kg: 0.3, why: "대피소에서 심심하긴 하겠지만…" },
+  { id: "game",     name: "게임기",        emo: "🎮", w: 1, h: 1, kg: 0.3, why: "대피소에서 심심하긴 하겠지만…" },
   { id: "multitap", name: "멀티탭",             emo: "🔌", w: 2, h: 1, kg: 0.6, why: "정전이면 꽂을 데도, 쓸 전기도 없어요" },
   { id: "lighter",  name: "라이터",             emo: "🔥", small: true, kg: 0.02, why: "야외에서 불 피울 땐 쓸모. 실내·지하에선 가스가 샜다면 폭발·화재 위험이 있고 불빛도 새요", useful: true },
   { id: "whistle",  name: "호루라기",            emo: "📢", small: true, kg: 0.02, why: "구조 신호를 보내거나 사람들을 안내할 때 쓰는 비상용품이에요", useful: true },
-  { id: "photo",    name: "가족사진 액자",        emo: "🖼️", w: 2, h: 2, kg: 0.8, why: "마음은 알지만 무겁고 커요" },
+  { id: "photo",    name: "가족사진",        emo: "🖼️", w: 2, h: 2, kg: 0.8, why: "마음은 알지만 무겁고 커요" },
   // 먹을 것: 작고 칼로리 높은 것일수록 회복(heal)이 큼
-  { id: "food",     name: "비상식량 (통조림·에너지바)", emo: "🥫", w: 1, h: 1, kg: 0.5, pts: 2, cat: "food", uses: 1, heal: 15, why: "조리 없이 바로 먹을 수 있어요" },
-  { id: "digestive",name: "다이제스티브 쿠키 한 통", emo: "🍪", w: 1, h: 2, kg: 0.4, pts: 2, cat: "food", uses: 2, heal: 12, why: "작은 부피에 칼로리가 높아요. 비상식으로 꽤 좋아요" },
-  { id: "snack",    name: "과자 한 봉지",         emo: "🥨", w: 2, h: 1, kg: 0.1, uses: 1, heal: 4, why: "봉지는 큰데 반은 공기라 배가 안 불러요" },
-  { id: "tuna",     name: "참치캔 4개 묶음",      emo: "🐟", w: 2, h: 2, kg: 0.6, cat: "food", uses: 4, heal: 10, pts: 2, bundle: { unit: "tuna1", count: 4 }, why: "통째로는 무겁고, 몇 개만 빼 가도 돼요" },
-  { id: "tuna1",    name: "참치캔 1개",          emo: "🐟", w: 1, h: 1, kg: 0.15, pts: 2, cat: "food", uses: 1, heal: 10, why: "따서 바로 먹을 수 있어요. 기름이 많아 든든해요" },
-  { id: "mealkit",  name: "밀키트 (부대찌개)",     emo: "🥘", w: 3, h: 2, kg: 1.2, why: "냉장 보관에 끓이기까지 해야 해요. 대피소에선 못 먹어요" },
-  { id: "rice",     name: "즉석밥 3개입",         emo: "🍚", w: 3, h: 1, kg: 0.63, uses: 3, heal: 5, bundle: { unit: "rice1", count: 3 }, why: "데우지 않으면 딱딱해요" },
-  { id: "rice1",    name: "즉석밥 1개",          emo: "🍚", w: 1, h: 1, kg: 0.21, uses: 1, heal: 5, why: "데우지 않으면 딱딱하지만 먹을 순 있어요" },
-  { id: "ramen",    name: "라면 한 박스 (20개)",   emo: "📦", w: 3, h: 3, kg: 2.4, bundle: { unit: "ramen1", count: 20 }, why: "박스째로는 너무 크고, 끓일 물과 불도 있어야 해요" },
-  { id: "ramen1",   name: "봉지라면 1개",         emo: "🍜", w: 1, h: 1, kg: 0.12, uses: 1, heal: 3, why: "끓일 수 없으면 생으로 부숴 먹어야 해요. 조금은 배가 차요" },
-  { id: "burner",   name: "휴대용 버너·부탄가스",   emo: "🍳", w: 3, h: 2, kg: 2.5, why: "대피소에선 불을 못 써요. 무겁고 위험해요" },
+  { id: "food",     name: "비상식량", emo: "🥫", w: 1, h: 1, kg: 0.5, pts: 2, cat: "food", uses: 1, heal: 15, why: "조리 없이 바로 먹을 수 있어요" },
+  { id: "digestive",name: "쿠키", emo: "🍪", w: 1, h: 2, kg: 0.4, pts: 2, cat: "food", uses: 2, heal: 12, why: "작은 부피에 칼로리가 높아요. 비상식으로 꽤 좋아요" },
+  { id: "snack",    name: "과자",         emo: "🥨", w: 2, h: 1, kg: 0.1, uses: 1, heal: 4, why: "봉지는 큰데 반은 공기라 배가 안 불러요" },
+  { id: "tuna",     name: "참치캔 4개",      emo: "🐟", w: 2, h: 2, kg: 0.6, cat: "food", uses: 4, heal: 10, pts: 2, bundle: { unit: "tuna1", count: 4 }, why: "통째로는 무겁고, 몇 개만 빼 가도 돼요" },
+  { id: "tuna1",    name: "참치캔",          emo: "🐟", w: 1, h: 1, kg: 0.15, pts: 2, cat: "food", uses: 1, heal: 10, why: "따서 바로 먹을 수 있어요. 기름이 많아 든든해요" },
+  { id: "mealkit",  name: "밀키트",     emo: "🥘", w: 3, h: 2, kg: 1.2, why: "냉장 보관에 끓이기까지 해야 해요. 대피소에선 못 먹어요" },
+  { id: "rice",     name: "즉석밥 3개",         emo: "🍚", w: 3, h: 1, kg: 0.63, uses: 3, heal: 5, bundle: { unit: "rice1", count: 3 }, why: "데우지 않으면 딱딱해요" },
+  { id: "rice1",    name: "즉석밥",          emo: "🍚", w: 1, h: 1, kg: 0.21, uses: 1, heal: 5, why: "데우지 않으면 딱딱하지만 먹을 순 있어요" },
+  { id: "ramen",    name: "라면 한 박스",   emo: "📦", w: 3, h: 3, kg: 2.4, bundle: { unit: "ramen1", count: 20 }, why: "박스째로는 너무 크고, 끓일 물과 불도 있어야 해요" },
+  { id: "ramen1",   name: "라면",         emo: "🍜", w: 1, h: 1, kg: 0.12, uses: 1, heal: 3, why: "끓일 수 없으면 생으로 부숴 먹어야 해요. 조금은 배가 차요" },
+  { id: "burner",   name: "버너",   emo: "🍳", w: 3, h: 2, kg: 2.5, why: "대피소에선 불을 못 써요. 무겁고 위험해요" },
   // 물: 묶음은 통째로 넣거나 낱개로 몇 병만 꺼낼 수 있음
-  { id: "water6",   name: "생수 500ml 6병 묶음",  emo: "📦", w: 3, h: 2, kg: 3,   pts: 4, cat: "water", uses: 6, heal: 12, bundle: { unit: "smallbottle", count: 6 }, why: "통째로면 3kg. 몇 병만 빼 가도 돼요" },
-  { id: "waterpack",name: "생수 2L 6병 묶음",     emo: "📦", w: 4, h: 3, kg: 12,  pts: 4, cat: "water", uses: 6, heal: 12, bundle: { unit: "bottle2l", count: 6 }, why: "물은 중요하지만 12kg는 들고 뛸 수 없어요" },
-  { id: "bottle2l", name: "생수 2L 1병",         emo: "💧", w: 1, h: 2, kg: 2,   pts: 4, cat: "water", uses: 4, heal: 12, why: "한 병에 2kg. 양은 넉넉하지만 무거워요" },
+  { id: "water6",   name: "생수 6병",  emo: "📦", w: 3, h: 2, kg: 3,   pts: 4, cat: "water", uses: 6, heal: 12, bundle: { unit: "smallbottle", count: 6 }, why: "통째로면 3kg. 몇 병만 빼 가도 돼요" },
+  { id: "waterpack",name: "생수 2L 6병",     emo: "📦", w: 4, h: 3, kg: 12,  pts: 4, cat: "water", uses: 6, heal: 12, bundle: { unit: "bottle2l", count: 6 }, why: "물은 중요하지만 12kg는 들고 뛸 수 없어요" },
+  { id: "bottle2l", name: "생수 2L",         emo: "💧", w: 1, h: 2, kg: 2,   pts: 4, cat: "water", uses: 4, heal: 12, why: "한 병에 2kg. 양은 넉넉하지만 무거워요" },
   // 옷·잠자리
-  { id: "clothes",  name: "갈아입을 옷",          emo: "👕", w: 2, h: 2, kg: 0.8, why: "화생방 때 코·입 가리개로 쓸 수 있었어요", useful: true },
+  { id: "clothes",  name: "옷",          emo: "👕", w: 2, h: 2, kg: 0.8, why: "화생방 때 코·입 가리개로 쓸 수 있었어요", useful: true },
   { id: "blanket",  name: "담요",               emo: "🛌", w: 2, h: 2, kg: 0.8, why: "들고 있기만 해도 추운 밤 체력을 지켜줘요", useful: true },
   // 약
-  { id: "med",      name: "구급약·상비약",         emo: "🩹", w: 2, h: 1, kg: 0.4, pts: 3, cat: "med", why: "상비약은 비상용품 기본 구성이에요" },
+  { id: "med",      name: "구급약",         emo: "🩹", w: 2, h: 1, kg: 0.4, pts: 3, cat: "med", why: "상비약은 비상용품 기본 구성이에요" },
   { id: "vitamin",  name: "영양제",             emo: "💊", small: true, kg: 0.1, why: "구급약 대신은 못 해요" },
-  { id: "tylenol",  name: "타이레놀 한 줄",       emo: "💊", small: true, kg: 0.02, pts: 2, cat: "med", why: "평소 들고 다니던 진통제. 두통·열에 바로 쓸 수 있어요" },
+  { id: "tylenol",  name: "진통제",       emo: "💊", small: true, kg: 0.02, pts: 2, cat: "med", why: "평소 들고 다니던 진통제. 두통·열에 바로 쓸 수 있어요" },
   // 서류·귀중품
   { id: "cash",     name: "현금",               emo: "💵", small: true, kg: 0.02, pts: 1, cat: "cash", why: "통신이 끊기면 카드·페이 결제가 안 돼요" },
   { id: "id",       name: "신분증",             emo: "🪪", small: true, kg: 0.01, pts: 1, cat: "id", why: "신원 확인, 소집·등록에 필요" },
@@ -1101,48 +1110,48 @@ const ITEMS = [
   { id: "jewelry",  name: "금반지",             emo: "💍", small: true, kg: 0.01, why: "당장 물 한 병과 바꾸기도 어려워요" },
   // 현관
   { id: "light",    name: "손전등",             emo: "🔦", w: 1, h: 2, kg: 0.25, pts: 3, cat: "light", why: "정전된 지하와 계단에서 필수" },
-  { id: "stick",    name: "등산 스틱 한 쌍",      emo: "🥾", w: 1, h: 4, kg: 0.5, why: "들고 있으면 이동할 때 체력이 덜 닳아요", useful: true },
+  { id: "stick",    name: "등산 스틱",      emo: "🥾", w: 1, h: 4, kg: 0.5, why: "들고 있으면 이동할 때 체력이 덜 닳아요", useful: true },
   { id: "raincoat", name: "우비",               emo: "🧥", w: 1, h: 1, kg: 0.2, why: "화생방 때 피부를 가리는 비닐옷 대신 쓸 수 있어요", useful: true },
-  { id: "memo",     name: "가족 연락처 메모",      emo: "📝", small: true, kg: 0.01, why: "휴대폰이 꺼지면 번호를 못 외워요", useful: true },
+  { id: "memo",     name: "연락처 메모",      emo: "📝", small: true, kg: 0.01, why: "휴대폰이 꺼지면 번호를 못 외워요", useful: true },
   { id: "carkey",   name: "차 키",              emo: "🔑", small: true, kg: 0.05, why: "차로 피난하면 도로가 막혀 오히려 위험해요" },
   // 욕실·위생
-  { id: "mask",     name: "마스크 5장",          emo: "😷", small: true, kg: 0.05, pts: 2, cat: "mask", why: "화생방 대비물품의 기본" },
+  { id: "mask",     name: "마스크",          emo: "😷", small: true, kg: 0.05, pts: 2, cat: "mask", why: "화생방 대비물품의 기본" },
   { id: "towel",    name: "수건",               emo: "🧖", w: 2, h: 1, kg: 0.3, cat: "towel", why: "적셔서 코와 입을 막을 수 있었어요", useful: true },
-  { id: "tissue",   name: "두루마리 휴지 6롤",     emo: "🧻", w: 3, h: 2, kg: 0.9, bundle: { unit: "tissue1", count: 6 }, why: "6롤은 너무 커요. 한두 롤이면 충분해요" },
-  { id: "tissue1",  name: "휴지 1롤",            emo: "🧻", w: 1, h: 1, kg: 0.15, why: "화장실·코·상처 닦기… 급할 때 쓸 데가 많아요", useful: true },
+  { id: "tissue",   name: "휴지 6롤",     emo: "🧻", w: 3, h: 2, kg: 0.9, bundle: { unit: "tissue1", count: 6 }, why: "6롤은 너무 커요. 한두 롤이면 충분해요" },
+  { id: "tissue1",  name: "휴지",            emo: "🧻", w: 1, h: 1, kg: 0.15, why: "화장실·코·상처 닦기… 급할 때 쓸 데가 많아요", useful: true },
   { id: "toothset", name: "칫솔·치약",           emo: "🪥", w: 1, h: 1, kg: 0.1, why: "대피소 생활이 길어지면 은근히 아쉬워요", useful: true },
-  { id: "lotion",   name: "스킨·로션 세트",       emo: "🧴", w: 2, h: 1, kg: 0.5, why: "유리병이라 무겁고, 당장 생존엔 필요 없어요" },
+  { id: "lotion",   name: "로션",       emo: "🧴", w: 2, h: 1, kg: 0.5, why: "유리병이라 무겁고, 당장 생존엔 필요 없어요" },
   { id: "wetwipe",  name: "물티슈",             emo: "🧽", w: 1, h: 1, kg: 0.2, why: "물이 귀할 때 손·얼굴을 닦을 수 있어요", useful: true },
-  { id: "sanitizer",name: "휴대용 손소독제",       emo: "🧼", small: true, kg: 0.05, why: "씻기 어려운 대피소에서 위생을 지켜요", useful: true },
+  { id: "sanitizer",name: "손소독제",       emo: "🧼", small: true, kg: 0.05, why: "씻기 어려운 대피소에서 위생을 지켜요", useful: true },
   // 회사·지하철에서만 나오는 물건
-  { id: "sneakers", name: "사물함 운동화",        emo: "👟", w: 2, h: 1, kg: 0.7, why: "갈아 신으면 오래 걸어도 덜 지쳐요 (이동할 때 체력이 덜 닳음)", useful: true },
-  { id: "umbrella", name: "장우산",             emo: "☂️", w: 1, h: 4, kg: 0.5, why: "이번 이야기에선 쓸 일이 없었어요" },
+  { id: "sneakers", name: "운동화",        emo: "👟", w: 2, h: 1, kg: 0.7, why: "갈아 신으면 오래 걸어도 덜 지쳐요 (이동할 때 체력이 덜 닳음)", useful: true },
+  { id: "umbrella", name: "우산",             emo: "☂️", w: 1, h: 4, kg: 0.5, why: "이번 이야기에선 쓸 일이 없었어요" },
   { id: "diary",    name: "다이어리",           emo: "📔", w: 1, h: 1, kg: 0.2, why: "평소 적어 둔 연락처와 주소를 휴대폰 없이도 볼 수 있어요", useful: true },
   { id: "lipstick", name: "립스틱",             emo: "💄", small: true, kg: 0.02, why: "비상시엔 쓸 일이 거의 없어요" },
-  { id: "rationwater", name: "배급 생수 1병",     emo: "💧", w: 1, h: 1, kg: 0.5, cat: "water", uses: 1, heal: 12, why: "대피소에서 받은 물" },
-  { id: "book",     name: "읽던 책",            emo: "📖", w: 1, h: 2, kg: 0.4, why: "대피소에서 시간은 가겠지만 생존엔 도움이 안 돼요" },
-  { id: "pouch",    name: "화장품 파우치",        emo: "👛", w: 2, h: 1, kg: 0.4, why: "비상시엔 거의 쓸모가 없어요" },
-  { id: "pillpouch", name: "상비약 파우치 (진통제·밴드)", emo: "👝", w: 1, h: 1, kg: 0.15, pts: 2, cat: "med", why: "작지만 기본 상비약은 들어 있어요" },
-  { id: "keylight", name: "키링 미니 손전등",     emo: "🔦", small: true, kg: 0.03, pts: 2, cat: "light", why: "작지만 정전된 곳에서 큰 힘이 돼요" },
-  { id: "earphones", name: "무선 이어폰",        emo: "🎧", small: true, kg: 0.05, why: "통신이 끊기면 들을 게 없어요" },
+  { id: "rationwater", name: "배급 생수",     emo: "💧", w: 1, h: 1, kg: 0.5, cat: "water", uses: 1, heal: 12, why: "대피소에서 받은 물" },
+  { id: "book",     name: "책",            emo: "📖", w: 1, h: 2, kg: 0.4, why: "대피소에서 시간은 가겠지만 생존엔 도움이 안 돼요" },
+  { id: "pouch",    name: "화장품",        emo: "👛", w: 2, h: 1, kg: 0.4, why: "비상시엔 거의 쓸모가 없어요" },
+  { id: "pillpouch", name: "약 파우치", emo: "👝", w: 1, h: 1, kg: 0.15, pts: 2, cat: "med", why: "작지만 기본 상비약은 들어 있어요" },
+  { id: "keylight", name: "미니 손전등",     emo: "🔦", small: true, kg: 0.03, pts: 2, cat: "light", why: "작지만 정전된 곳에서 큰 힘이 돼요" },
+  { id: "earphones", name: "이어폰",        emo: "🎧", small: true, kg: 0.05, why: "통신이 끊기면 들을 게 없어요" },
   { id: "hanky",    name: "손수건",             emo: "🤧", small: true, kg: 0.02, cat: "towel", why: "적셔서 코와 입을 막을 수 있었어요", useful: true },
-  { id: "chocolate", name: "선물용 초콜릿 상자",   emo: "🍫", w: 2, h: 1, kg: 0.3, pts: 2, cat: "food", uses: 1, heal: 10, why: "달고 칼로리가 높아 비상식으로 쓸 만해요" },
-  { id: "energybar", name: "에너지바·견과 한 봉",   emo: "🥜", w: 1, h: 1, kg: 0.3, pts: 2, cat: "food", uses: 1, heal: 12, why: "작고 가벼운데 칼로리가 높아요" },
-  { id: "candy",    name: "사탕·초콜릿 한 줌",     emo: "🍬", small: true, kg: 0.1, cat: "food", uses: 1, heal: 6, why: "주머니에 쏙. 당이 떨어질 때 바로 힘이 나요" },
-  { id: "coffeemix",name: "믹스커피 스틱 한 줌",   emo: "☕", small: true, kg: 0.05, uses: 1, heal: 3, why: "물이 있어야 타 먹어요. 그냥 털어 먹으면 당만 조금" },
-  { id: "papercup", name: "종이컵 한 줄",         emo: "🥤", w: 1, h: 2, kg: 0.1, why: "배급 물 받을 때 쓸 수도 있지만, 거의 필요 없어요" },
-  { id: "cbrmask",  name: "방독면 (화생방용)",     emo: "🥽", small: true, kg: 0.8, pts: 3, cat: "mask", why: "화생방 때 독가스·미세 입자를 걸러 주는 1순위 대비물품이에요. 집에 두는 일은 드물고, 비상시 민방위·군에서 나눠 줄 수 있어요" },
-  { id: "spare_batt", name: "예비 건전지 (AA 4개)", emo: "🔋", small: true, kg: 0.1, useful: true, why: "라디오·손전등 건전지가 닳으면 갈아 끼울 수 있어요" },
-  { id: "tape",     name: "접착테이프",           emo: "🩹", w: 1, h: 1, kg: 0.2, useful: true, why: "깨진 창을 막거나 화생방 때 문틈을 밀폐할 수 있어요" },
+  { id: "chocolate", name: "초콜릿 상자",   emo: "🍫", w: 2, h: 1, kg: 0.3, pts: 2, cat: "food", uses: 1, heal: 10, why: "달고 칼로리가 높아 비상식으로 쓸 만해요" },
+  { id: "energybar", name: "에너지바",   emo: "🥜", w: 1, h: 1, kg: 0.3, pts: 2, cat: "food", uses: 1, heal: 12, why: "작고 가벼운데 칼로리가 높아요" },
+  { id: "candy",    name: "사탕",     emo: "🍬", small: true, kg: 0.1, cat: "food", uses: 1, heal: 6, why: "주머니에 쏙. 당이 떨어질 때 바로 힘이 나요" },
+  { id: "coffeemix",name: "믹스커피",   emo: "☕", small: true, kg: 0.05, uses: 1, heal: 3, why: "물이 있어야 타 먹어요. 그냥 털어 먹으면 당만 조금" },
+  { id: "papercup", name: "종이컵",         emo: "🥤", w: 1, h: 2, kg: 0.1, why: "배급 물 받을 때 쓸 수도 있지만, 거의 필요 없어요" },
+  { id: "cbrmask",  name: "방독면",     emo: "🥽", small: true, kg: 0.8, pts: 3, cat: "mask", why: "화생방 때 독가스·미세 입자를 걸러 주는 1순위 대비물품이에요. 집에 두는 일은 드물고, 비상시 민방위·군에서 나눠 줄 수 있어요" },
+  { id: "spare_batt", name: "건전지", emo: "🔋", small: true, kg: 0.1, useful: true, why: "라디오·손전등 건전지가 닳으면 갈아 끼울 수 있어요" },
+  { id: "tape",     name: "테이프",           emo: "🩹", w: 1, h: 1, kg: 0.2, useful: true, why: "깨진 창을 막거나 화생방 때 문틈을 밀폐할 수 있어요" },
   { id: "gloves",   name: "고무장갑",             emo: "🧤", small: true, kg: 0.1, useful: true, why: "유리 조각을 치우거나 화생방 때 피부를 가릴 수 있어요" },
-  { id: "gasmask",  name: "화재 대피용 마스크 (후드형)", emo: "⛑️", w: 2, h: 1, kg: 0.4, pts: 2, cat: "mask", why: "화재 연기용이라 화생방 작용제는 못 막아요. 급할 때 코·입을 가리는 임시용 정도예요" },
-  { id: "cupramen", name: "컵라면 6개입 박스",     emo: "📦", w: 3, h: 2, kg: 0.6, bundle: { unit: "cupramen1", count: 6 }, why: "부피만 크고, 뜨거운 물이 없으면 먹기 힘들어요" },
-  { id: "cupramen1",name: "컵라면 1개",          emo: "🍜", w: 1, h: 1, kg: 0.1, uses: 1, heal: 3, why: "뜨거운 물이 없으면 생으로 부숴 먹어야 해요" },
-  { id: "smallbottle", name: "생수 500ml 1병",   emo: "💧", w: 1, h: 1, kg: 0.5, pts: 2, ptsMany: 4, cat: "water", uses: 1, heal: 12, why: "한 병은 금방 바닥나요. 2병 이상이면 든든해요" },
-  { id: "fruitbox", name: "선물용 과일 상자",      emo: "🍎", w: 3, h: 2, kg: 3,   uses: 2, heal: 8, why: "먹을 순 있지만 무겁고 커요" },
+  { id: "gasmask",  name: "화재용 마스크", emo: "⛑️", w: 2, h: 1, kg: 0.4, pts: 2, cat: "mask", why: "화재 연기용이라 화생방 작용제는 못 막아요. 급할 때 코·입을 가리는 임시용 정도예요" },
+  { id: "cupramen", name: "컵라면 6개",     emo: "📦", w: 3, h: 2, kg: 0.6, bundle: { unit: "cupramen1", count: 6 }, why: "부피만 크고, 뜨거운 물이 없으면 먹기 힘들어요" },
+  { id: "cupramen1",name: "컵라면",          emo: "🍜", w: 1, h: 1, kg: 0.1, uses: 1, heal: 3, why: "뜨거운 물이 없으면 생으로 부숴 먹어야 해요" },
+  { id: "smallbottle", name: "생수",   emo: "💧", w: 1, h: 1, kg: 0.5, pts: 2, ptsMany: 4, cat: "water", uses: 1, heal: 12, why: "한 병은 금방 바닥나요. 2병 이상이면 든든해요" },
+  { id: "fruitbox", name: "과일 상자",      emo: "🍎", w: 3, h: 2, kg: 3,   uses: 2, heal: 8, why: "먹을 순 있지만 무겁고 커요" },
   // 편의점에서 사는 물건 (집에는 없음)
-  { id: "bread",    name: "편의점 빵",           emo: "🥐", w: 2, h: 1, kg: 0.2, uses: 1, heal: 10, shop: true, why: "현금으로 산 빵" },
-  { id: "bottle",   name: "편의점 생수 2병",      emo: "💧", w: 1, h: 2, kg: 1,   uses: 2, perCell: true, heal: 12, shop: true, why: "현금으로 산 물" }
+  { id: "bread",    name: "빵",           emo: "🥐", w: 2, h: 1, kg: 0.2, uses: 1, heal: 10, shop: true, why: "현금으로 산 빵" },
+  { id: "bottle",   name: "생수 2병",      emo: "💧", w: 1, h: 2, kg: 1,   uses: 2, perCell: true, heal: 12, shop: true, why: "현금으로 산 물" }
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // 묶음 물건: 낱개로 꺼낸 건 "smallbottle", "smallbottle~2", "smallbottle~3"… 처럼 한 칸씩 따로 들어감
@@ -3474,7 +3483,7 @@ function onDragEnd(e) {
 
 // 한 칸짜리 물건·앞주머니에 적는 짧은 이름
 const SHORT_NAME = {"battery":"배터리","game":"게임기","lighter":"라이터","whistle":"호루라기","food":"비상식량","digestive":"쿠키","tuna1":"참치캔","rice1":"즉석밥","ramen1":"봉지라면","bottle2l":"생수 2L","vitamin":"영양제","tylenol":"타이레놀","cash":"현금","id":"신분증","passport":"여권","jewelry":"금반지","light":"손전등","stick":"등산스틱","raincoat":"우비","memo":"연락 메모","carkey":"차 키","mask":"마스크","tissue1":"휴지","toothset":"칫솔치약","wetwipe":"물티슈","sanitizer":"손소독제","umbrella":"장우산","diary":"다이어리","lipstick":"립스틱","rationwater":"생수","book":"책","pillpouch":"약 파우치","keylight":"키링 전등","earphones":"이어폰","hanky":"손수건","energybar":"에너지바","candy":"사탕","coffeemix":"커피 스틱","papercup":"종이컵","cbrmask":"방독면","spare_batt":"건전지","tape":"테이프","gloves":"고무장갑","cupramen1":"컵라면","smallbottle":"생수","bottle":"생수 2병"};
-const shortName = it => SHORT_NAME[it.base] || SHORT_NAME[it.id] || it.name.replace(/\s*\(.*\)/, "");
+const shortName = it => it.name;   // 물건 이름 자체를 간단하게 바꿔서 이제 줄임 이름은 안 씀 (SHORT_NAME은 옛 기록)
 function pocketHtml(mode, list = pocket) {
   let slots = "";
   for (let i = 0; i < POCKET_SLOTS; i++) {
@@ -3501,8 +3510,7 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const style = `grid-column:${p.x + 1} / span ${p.w};grid-row:${p.y + 1} / span ${p.h}`;
     const label = item.perCell && uses[p.id] ? item.name.replace(/\d+병/, uses[p.id] + "병") : item.name;
     const wide = p.w >= 2;
-    let nmText = wide ? label : shortName(item);
-    if (!wide && item.perCell && uses[p.id]) nmText = nmText.replace(/\d+병/, uses[p.id] + "병");
+    const nmText = label;   // 가로·세로 상관없이 같은 이름
     const hasUses = mode === "use" && item.uses && !item.perCell;
     const inlineUses = hasUses && p.w === 1 && p.h === 1;   // 한 칸짜리는 구석 숫자가 이름과 겹쳐서 이름 옆에 적음
     const nmFull = nmText + (inlineUses ? ` ×${uses[p.id]}` : "");
@@ -3562,7 +3570,7 @@ function renderPack(message = "") {
   // 가구는 옆으로 나란히 놓인 탭: 하나는 늘 열려 있고, 다른 걸 누르면 아래 물건 칸만 바뀜 (화면이 밀려 내려가지 않게)
   if (!furns.some(f => f.id === openFurn)) openFurn = furns.length ? furns[0].id : null;
   app.innerHTML = `
-    ${metersHtml("pack", `<div class="pack-mid"><div class="pack-bag">${bagHtml("edit")}</div><button class="nav-primary highlight pack-done" id="pack-done" aria-label="다 쌌어요"><span>다<br>쌌<br>어<br>요</span><b>✓</b></button></div><p class="msg">${message}</p>`)}
+    ${metersHtml("pack", `<div class="pack-mid"><div class="pack-bag">${bagHtml("edit")}</div><button class="nav-primary highlight pack-done" id="pack-done" aria-label="다 쌌어요"><span>다<br>쌌<br>어<br>요</span><b>✓</b></button></div>`)}
     <p class="note pack-hint">가방 속 물건: <strong>누르면 회전</strong> · <strong>끌면 이동</strong> · ✕로 빼기</p>
     <div class="rooms" style="grid-template-columns:repeat(${L.rooms.length},1fr)">
       ${L.rooms.map(r => `<button class="room-tab${r.id === openRoom ? " on" : ""}" id="room-${r.id}" data-room="${r.id}"><span class="emo">${r.emo}</span>${r.name}</button>`).join("")}
@@ -3585,6 +3593,7 @@ function renderPack(message = "") {
 `;
   setNav({ game: true, back: true });
   document.body.classList.add("packing");
+  if (message) toast(message, false);   // 자리 없음 등은 화면 사이에 끼우지 않고 팝업으로
   document.getElementById("pack-done").addEventListener("click", () => finishPacking(false));
 
   app.querySelectorAll("[data-room]").forEach(b => b.addEventListener("click", () => { openRoom = b.dataset.room; openFurn = null; bundlePick = null; rerender(() => renderPack("")); }));
@@ -5426,7 +5435,8 @@ function gradeOf(score) {
 
 // 📅 결과 화면 전에 '그 뒤' 이야기를 타자 치듯 보여 줌. 글을 누르면 바로 다 나옴
 function showAfter(ending) {
-  const text = ENDING_AFTER[ending];
+  // 소집을 피해 도망치다 쓰러졌으면 진료소에서 신원이 드러남
+  const text = ending === "exhausted" && flags.evade ? "진료소 간이침대에서 눈을 뜨자 옆에 헌병이 서 있었다. 신원 확인 끝에 소집을 피한 게 드러났다. 몸이 회복되는 대로 소집 장소로 인계된다고 했다." : ENDING_AFTER[ending];
   app.innerHTML = `<section class="after-page">
     <p class="after-tag">📅 그 뒤</p>
     <p class="after-text" id="after-text" aria-label="${text}"></p>
@@ -5507,7 +5517,7 @@ function showResult() {
   const itemRows = essentials.map(i => {
     const many = effPts(i) > i.pts;   // 예: 생수는 2병 이상이 기준
     const haveCat = (catCount[i.cat] || 0) >= (many ? 2 : 1);   // 점수 계산과 같은 기준
-    return `<li><span>${i.emo} ${many ? i.name.replace("1병", "2병 이상") : i.name} · ${i.kg}kg${many ? "씩" : ""}<span class="why">${i.why}</span></span>
+    return `<li><span>${i.emo} ${many ? i.name + " 2병 이상" : i.name} · ${i.kg}kg${many ? "씩" : ""}<span class="why">${i.why}</span></span>
       <span class="pill ${haveCat ? "good" : "bad"}">${haveCat ? "챙김" : "놓침"}</span></li>`;
   }).join("");
   const essIds = essentials.map(i => i.id);
