@@ -161,6 +161,14 @@ body.packing .room-tab { padding: 5px 2px; min-height: 0; display: flex; justify
 body.packing .room-tab .emo { font-size: 1rem; }
 body.packing .furn-tab { min-height: 0; padding: 5px 4px; font-size: .76rem; }
 body.packing .furn-tabs + .furn-items { min-height: 0; }
+body.packing .furn-list { position: relative; }
+body.packing .furn-list.more::after { content: "↓ 아래에 더 있어요"; position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); pointer-events: none;
+  font-size: .74rem; font-weight: 700; color: var(--bg); background: var(--accent); border-radius: 99px; padding: 3px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.35); animation: moreBob 1.6s ease-in-out infinite; }
+@keyframes moreBob { 0%, 100% { transform: translateX(-50%); } 50% { transform: translate(-50%, 4px); } }
+body.packing .furn-list.more::before { content: ""; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 34px; pointer-events: none; border-radius: 0 0 12px 12px;
+  background: linear-gradient(to bottom, transparent, var(--bg)); z-index: 1; }
+body.packing .furn-list.more::after { z-index: 2; }
+@media (prefers-reduced-motion: reduce) { body.packing .furn-list.more::after { animation: none; } }
 body.packing .packtop .note { font-size: .72rem; margin: 0; }
 body.packing .pslot .rot { font-size: 1.3rem; }
 body.packing .msg { font-size: .8rem; }
@@ -3594,6 +3602,14 @@ function renderPack(message = "") {
   setNav({ game: true, back: true });
   document.body.classList.add("packing");
   if (message) toast(message, false);   // 자리 없음 등은 화면 사이에 끼우지 않고 팝업으로
+  {   // 물건 칸 안에서만 스크롤될 때: 아래에 더 있다는 표시 (끝까지 내리면 사라짐)
+    const box = app.querySelector(".furn-items"), list = app.querySelector(".furn-list");
+    if (box && list) {
+      const upd = () => list.classList.toggle("more", box.scrollHeight - box.scrollTop - box.clientHeight > 6);
+      box.addEventListener("scroll", upd, { passive: true });
+      requestAnimationFrame(upd);
+    }
+  }
   document.getElementById("pack-done").addEventListener("click", () => finishPacking(false));
 
   app.querySelectorAll("[data-room]").forEach(b => b.addEventListener("click", () => { openRoom = b.dataset.room; openFurn = null; bundlePick = null; rerender(() => renderPack("")); }));
