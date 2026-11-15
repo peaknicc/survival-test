@@ -1141,7 +1141,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.18";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.19";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -3636,18 +3636,12 @@ function bagHtml(mode, list = placed, pk = pocket) {
 
 // 묶음 카드: 다른 물건과 같은 크기. 누르면 그 자리에서 '+1개 / 전부' 두 버튼으로 바뀜 (크기는 그대로라 화면이 안 밀림)
 function bundleCardHtml(b) {
-  const u = ITEM_BY_ID[b.bundle.unit], taken = unitsTaken(b), left = b.bundle.count - taken, whole = has(b.id);
+  // 묶음째 넣기는 없앰(펼쳐지며 옆 카드가 밀려서). 누를 때마다 낱개 하나씩, 이름 밑엔 남은 개수
+  const u = ITEM_BY_ID[b.bundle.unit], left = b.bundle.count - unitsTaken(b), whole = has(b.id);
   const off = whole || left <= 0;
-  if (bundlePick && bundlePick.id === b.id && !off) {
-    return `<div class="item-card bundle-card pick" id="item-${b.id}">
-        <button type="button" class="bb-unit" data-bunit="${b.id}" aria-label="${u.name} 낱개 하나 넣기">${u.emo} +1개<small>${left}개 남음</small></button>
-        <button type="button" class="bb-whole" data-bwhole="${b.id}" aria-label="${b.name} 전부 넣기" ${taken ? "disabled" : ""}>📦 전부</button>
-      </div>`;
-  }
-  const status = !whole && taken ? `${left}개 남음` : "";   // 칸·무게는 안 적음 (이름에 개수가 있음)
-  return `<button class="item-card" id="item-${b.id}" data-bundle="${b.id}" ${off ? "disabled" : ""}>
-      <span class="emo">${b.emo}</span>
-      <span style="min-width:0"><span class="name">${b.name}</span><span class="size">${status}</span></span>
+  return `<button class="item-card" id="item-${b.id}" data-bundle="${b.id}" ${off ? "disabled" : ""} aria-label="${u.name} 하나 넣기">
+      <span class="emo">${u.emo}</span>
+      <span style="min-width:0"><span class="name">${u.name}</span><span class="size">${whole ? "" : left + "개"}</span></span>
     </button>`;
 }
 // 누른 곳 옆에 잠깐 떠오르는 숫자 (예: +1 💧)
@@ -3710,7 +3704,12 @@ function renderPack(message = "") {
   app.querySelectorAll("[data-room]").forEach(b => b.addEventListener("click", () => { openRoom = b.dataset.room; openFurn = null; bundlePick = null; rerender(() => renderPack("")); }));
   app.querySelectorAll("[data-furn]").forEach(b => b.addEventListener("click", () => { openFurn = b.dataset.furn; bundlePick = null; rerender(() => renderPack("")); }));
   app.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => { const m = addItem(b.dataset.item); rerender(() => renderPack(m)); }));
-  app.querySelectorAll("[data-bundle]").forEach(b => b.addEventListener("click", () => { bundlePick = { id: b.dataset.bundle }; rerender(() => renderPack("")); }));
+  app.querySelectorAll("[data-bundle]").forEach(b => b.addEventListener("click", e => {
+    const B = ITEM_BY_ID[b.dataset.bundle], before = unitsTaken(B);
+    const m = addUnits(B.id, 1);
+    if (unitsTaken(B) > before) floatPlus(e, `+1 ${ITEM_BY_ID[B.bundle.unit].emo}`);
+    rerender(() => renderPack(m));
+  }));
   app.querySelectorAll("[data-bunit]").forEach(b => b.addEventListener("click", e => {
     const B = ITEM_BY_ID[b.dataset.bunit], before = unitsTaken(B);
     const m = addUnits(B.id, 1);
