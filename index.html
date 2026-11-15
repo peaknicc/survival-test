@@ -1113,7 +1113,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.13";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.14";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -4045,8 +4045,7 @@ function renderScene(index) {
   const shownCombos = (s.combos || []).map((c, k) => ({ c, k, id: comboItem(c) })).filter(x => x.id);   // 가진 물건으로 할 수 있는 것만
   const live = feedLive(index);
   live.innerHTML = `
-    <div class="progress"><span>${GROUPS[group].label}${route ? " · " + routeName() : ""}${inGroup ? " · 그룹 루트" : ""}</span><span>${index + 1} / ${scenes.length}</span></div>
-    <p class="stage">${s.stage}</p>
+    <div class="progress"><span class="stage">${s.stage}</span><span>${index + 1} / ${scenes.length}</span></div>   <!-- 시간·장면 이름과 진행을 한 줄로 -->
     ${notice && notice.img && EP_IMG[notice.img] ? `<img class="ep-art bf-art" src="${EP_IMG[notice.img]}" alt="">` : EP_IMG[s.imgKey] ? `<img class="ep-art" src="${EP_IMG[s.imgKey]}" alt="">` : s.cut ? `<div class="cut" aria-hidden="true"><span class="emo">${s.cut}</span>${s.bubble ? `<span class="bubble">${s.bubble}</span>` : ""}</div>` : ""}
     ${s.announce && !s.alert && !/방송/.test(s.story) ? `<p class="announce">📢 안내방송 “${s.announce}”</p>` : ""}
     ${notice && !notice.moved ? `<p class="notice ${notice.up ? "up" : "down"}">${notice.text}</p>` : ""}
