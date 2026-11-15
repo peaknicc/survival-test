@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0tQ4xwQGqagQTGwSc05SaZsD+A4So9iZ/GzXvu2fUOI='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-iUZlAjklS/51XFiTmxGXyG5qgJlqHxx78kumd5R738A='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="전쟁이 나면, 나는 살아남을까? 정부 비상시 국민행동요령을 바탕으로 만든 가상 생존 테스트">
 <meta property="og:title" content="생존 테스트">
 <meta property="og:description" content="전쟁이 나면, 나는 살아남을까?">
@@ -1148,7 +1148,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.24";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.25";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -1434,7 +1434,7 @@ const SHELTER_ROUTE = [
     ],
     items: {
       water: { p: 10, r: "챙겨 온 물을 마셨다. 살 것 같다." },
-      food: { p: 9, r: "비상식량으로 허기를 달랬다." },
+      food: { p: 9, r: "챙겨 온 먹을거리로 허기를 달랬다." },
       cash: { p: 9, gain: ["bread", "bottle"], r: "현금으로 물과 빵을 샀다." },
       jewelry: { p: 3, r: "금반지를 내밀었지만 '이걸로 뭘 해요' 하는 표정만 돌아왔다." }
     },
@@ -1486,7 +1486,7 @@ const HOME_ROUTE = [
     ],
     items: {
       water: { p: 10, r: "챙겨 둔 물을 마셨다. 정신이 든다." },
-      food: { p: 7, r: "비상식량을 먹으니 조금 버틸 만하다." }
+      food: { p: 7, r: "챙겨 온 먹을거리를 먹으니 조금 버틸 만하다." }
     },
     tip: "공습 뒤엔 단수·정전이 함께 올 수 있어요. 식량과 식수를 미리 준비해 둬야 해요. 깨진 창이나 틈새는 비닐과 접착테이프로 막고, 침구·의류로 체온을 지키세요.",
     src: ["s3", "s4"]
@@ -1900,7 +1900,7 @@ const EVAC_ROUTE = [
       { t: "모른 척 눈을 감는다", p: 2, r: "아이 울음소리가 밤새 이어졌다." }
     ],
     items: {
-      med: { p: 10, r: "구급약 상자에서 해열제를 꺼내 아이 엄마에게 건넸다." },
+      med: { p: 10, r: "열을 내릴 약을 꺼내 아이 엄마에게 건넸다." },
       water: { p: 7, r: "물을 나눠 주고, 적신 손수건으로 아이 이마를 식혀 줬다." },
       towel: { p: 7, r: "수건을 적셔 아이 이마에 올려 줬다." }
     },
@@ -2022,7 +2022,7 @@ const EVADE_ROUTE = [
     ],
     items: {
       water: { p: 5, r: "챙겨 온 물로 하루를 더 버텼다. 하지만 언제까지 숨을 수 있을까." },
-      food: { p: 5, r: "비상식량으로 버텼다. 하지만 바깥 소식은 하나도 모른다." }
+      food: { p: 5, r: "챙겨 온 먹을거리로 버텼다. 하지만 바깥 소식은 하나도 모른다." }
     },
     tip: "비상시 물자 배급과 대피소 등록에는 신원 확인이 따라요. 소집을 피해 숨으면 이런 도움을 받기 어려워져요. 병력동원소집에 정당한 사유 없이 2일 안에 응하지 않으면 병역법 제88조에 따라 3년 이하의 징역이에요(벌금형 없음).",
     src: ["s22", "s23"]
@@ -2323,6 +2323,18 @@ const STORE_KEY = "survival-test-endings";
 function loadFound() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch (e) { return []; } }
 function saveFound(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch (e) {} }
 
+// 🪪 묶음(cat)으로 같은 문장을 쓰던 물건에 제 이름 문장 주기 (v0.99.25, 제미나이 물건문장모순 검수)
+(() => {
+  const all = [FIRST, FIRST_OFFICE, FIRST_SUBWAY, EVAC_NOTICE, ...SHELTER_ROUTE, ...HOME_ROUTE, ...ROAD_ROUTE, ...NEIGHBOR_ROUTE, ...OFFICE_STAY_ROUTE,
+    ...EVAC_ROUTE, ...EVADE_ROUTE, ...GROUP_SCENES.A, ...GROUP_SCENES.B, ...GROUP_SCENES.C, ...GROUP_SCENES.D];
+  // 여권으로 신원 확인: 신분증 문장에서 이름만 바꿈(조사 '을·으로'가 같아서 그대로 맞음)
+  all.forEach(s => { const b = s.items && s.items.id; if (b && !s.items.passport && typeof b.r === "string") s.items.passport = { ...b, r: b.r.replace(/신분증/g, "여권") }; });
+  const C1 = GROUP_SCENES.C[1], med = C1.items.med;
+  if (med) {
+    C1.items.tylenol = { ...med, r: "아이 엄마에게 진통제를 건네 통증을 덜게 했다. 사람들이 도와 달라며 모였다." };
+    C1.items.pillpouch = { ...med, r: "약 파우치의 소독약과 밴드로 아이 상처를 감쌌다. 사람들이 도와 달라며 모였다." };
+  }
+})();
 // ───────── 상태 ─────────
 let group = null, route = null;
 let scenes = [];
