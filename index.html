@@ -962,12 +962,12 @@ const SOURCES = {
   s31: { name: "Girl Scouts of Maine · How to Pack an Overnight Backpack", url: "https://www.girlscoutsofmaine.org/content/dam/girlscoutsofmaine-redesign/documents/program/How-to-Pack-an-Overnight-Backpack.pdf" }
 };
 
-// 화면에 보이는 순서: 여성 → 병역의무자(복무 전) → 전역자 (키 A·B·C는 내부용)
+// 상태(소집 구분) — 성별과 따로 고름. 화면 순서 A·D·B·C (키는 내부용), B만 남성 전용
 const GROUPS = {
-  A: { label: "동원예비군", desc: "전역 4년 이내", emo: "🪖" },
-  D: { label: "지역·민방위", desc: "전역 5년 이상", emo: "🦺" },
-  B: { label: "병역소집 대상", desc: "아직 복무 전", emo: "🧑" },
-  C: { label: "일반 시민", desc: "여성 · 병역의무 끝난 남성", emo: "🏠" }
+  A: { label: "동원예비군", desc: "전역 뒤 병 4년 · 간부 6년 이내", emo: "🪖" },
+  D: { label: "지역·민방위", desc: "그 뒤 예비군 · 민방위 대원", emo: "🦺" },
+  B: { label: "병역소집 대상", desc: "입대 전 남성", emo: "🧑" },
+  C: { label: "일반 시민", desc: "소집 대상 아님 · 면제 · 나이 지남", emo: "🏠" }
 };
 let gender = "M";   // 지하철에서 들고 있던 물건이 달라짐
 
@@ -987,7 +987,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.98";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -1472,7 +1472,7 @@ const GROUP_SCENES = {
         { t: "연락이 안 되니 모르는 척 숨어 지낸다", p: 0, bad: true, r: "숨어 있을 곳은 없었다. 결국 소집 장소로 향했다." }
       ],
       items: { memo: { p: 10, move: 15, r: "메모지에 소집 장소와 만날 곳을 적어 게시판에 남기고 출발했다." }, diary: { p: 10, move: 15, r: "다이어리 한 장을 뜯어 소집 장소와 만날 곳을 적어 게시판에 남기고 출발했다." } },
-      tip: "동원 예비군(병사 기준 전역 1~4년차)은 통지서에 적힌 장소·시간에 입영해야 하고, 정당한 이유 없이 안 가면 처벌받아요. 5~8년차는 지역 예비군, 그 이후는 민방위 대원으로 소집될 수 있어요.",
+      tip: "동원 예비군(전역 1~4년차, 장교·부사관 출신은 1~6년차)은 통지서에 적힌 장소·시간에 입영해야 하고, 정당한 이유 없이 안 가면 처벌받아요. 그 뒤 예비군 기간은 지역 예비군, 그 이후는 민방위 대원으로 소집될 수 있어요. 여군 전역자는 예비군에 지원해 들어간 사람만 해당돼요.",
       src: ["s7", "s8"]
     },
     {
@@ -1531,7 +1531,7 @@ const GROUP_SCENES = {
         { t: "헤어진 가족을 빨리 만나기 위해 집 근처로 나가 본다", p: 2, move: 12, bad: true, r: "거리는 위험했고, 결국 아무도 찾지 못한 채 지쳐서 돌아왔다." },
       ],
       items: { memo: { p: 10, r: "메모해 둔 번호와 만날 곳을 게시판에 남겼다. 오후에 할머니와 조카를 만났다." }, diary: { p: 10, r: "다이어리에 적힌 번호로 가족 소식을 남겼다. 오후에 할머니와 조카를 만났다." } },
-      tip: "여성과 병역의무 나이가 지난 남성은 일반적으로 군 동원 의무가 없어요. 대신 가족과 이웃을 돌보고 구호를 돕는 일이 후방을 지탱해요. 가족과 연락 방법·만날 장소도 미리 정해 두세요.",
+      tip: "예비군이 아닌 사람(예비군에 들지 않은 여성, 병역의무 나이가 지났거나 면제된 남성 등)은 일반적으로 군 동원 의무가 없어요. 대신 가족과 이웃을 돌보고 구호를 돕는 일이 후방을 지탱해요. 가족과 연락 방법·만날 장소도 미리 정해 두세요.",
       src: ["s4", "s9"]
     },
     {
@@ -3010,16 +3010,15 @@ function showStart() {
     </div>
     </div>
     <div class="sgrp">
-    <p class="eyebrow">나는? · 후반부 이야기가 달라져요</p>
+    <p class="eyebrow">나는?</p>
     <div class="groups row two">
       <button class="choice group-btn" id="gender-F" data-gender="F"><span class="g-emo">👩</span><strong>여성</strong></button>
       <button class="choice group-btn" id="gender-M" data-gender="M"><span class="g-emo">👨</span><strong>남성</strong></button>
     </div>
-    <div id="male-step" hidden>
-      <p class="eyebrow">지금 내 상태는?</p>
+    <div id="male-step">
+      <p class="eyebrow">지금 내 상태는? · 후반부 이야기가 달라져요</p>
       <div class="groups row two">
-        ${["A", "D", "B"].map(key => `<button class="choice group-btn" id="group-${key}" data-group="${key}"><span class="g-emo">${GROUPS[key].emo}</span><strong>${GROUPS[key].label}</strong><small>${GROUPS[key].desc}</small></button>`).join("")}
-        <button class="choice group-btn" id="group-C" data-group="C"><span class="g-emo">🏠</span><strong>병역의무 끝남</strong><small>법정 나이 지남 · 면제</small></button>
+        ${["A", "D", "B", "C"].map(key => `<button class="choice group-btn" id="group-${key}" data-group="${key}"><span class="g-emo">${GROUPS[key].emo}</span><strong>${GROUPS[key].label}</strong><small>${GROUPS[key].desc}</small></button>`).join("")}
       </div>
     </div>
     </div>
@@ -3061,28 +3060,26 @@ function showStart() {
   }));
   const begin = (g, gd) => { group = g; gender = gd; resetRun(); showPrologue(0); };
   // 고르기만 하고, '시작하기'를 눌러야 출발
-  let pick = null;
-  const goBtn = document.getElementById("start-go");
-  const choose = (g, gd, btn) => {
-    pick = { g, gd };
-    app.querySelectorAll("[data-group], #gender-F").forEach(x => x.classList.toggle("on", x === btn));
-    goBtn.disabled = false; goBtn.classList.add("highlight");
+  // 성별(그림·소지품)과 상태(소집 구분)를 따로 고름 — 여성도 군필이면 예비군을 고를 수 있음. 병역소집 대상(입대 전)만 남성 전용
+  let pickG = null, pickGd = null;
+  const goBtn = document.getElementById("start-go"), bBtn = document.getElementById("group-B");
+  const sync = () => {
+    app.querySelectorAll("[data-gender]").forEach(x => x.classList.toggle("on", x.dataset.gender === pickGd));
+    app.querySelectorAll("[data-group]").forEach(x => x.classList.toggle("on", x.dataset.group === pickG));
+    bBtn.disabled = pickGd === "F";
+    const ok = !!(pickG && pickGd);
+    goBtn.disabled = !ok; goBtn.classList.toggle("highlight", ok);
   };
-  document.getElementById("gender-F").addEventListener("click", e => {
-    document.getElementById("gender-M").classList.remove("on");
-    document.getElementById("male-step").hidden = true;
-    choose("C", "F", e.currentTarget);
-  });
-  document.getElementById("gender-M").addEventListener("click", e => {
-    e.currentTarget.classList.add("on");
-    pick = null; goBtn.disabled = true; goBtn.classList.remove("highlight");
-    app.querySelectorAll("[data-group], #gender-F").forEach(x => x.classList.remove("on"));
-    const step = document.getElementById("male-step");
-    step.hidden = false; step.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  app.querySelectorAll("[data-group]").forEach(btn => btn.addEventListener("click", () => choose(btn.dataset.group, "M", btn)));
+  app.querySelectorAll("[data-gender]").forEach(btn => btn.addEventListener("click", () => {
+    pickGd = btn.dataset.gender;
+    if (pickGd === "F" && pickG === "B") pickG = null;
+    sync();
+    if (!pickG) document.getElementById("male-step").scrollIntoView({ behavior: "smooth", block: "center" });
+  }));
+  app.querySelectorAll("[data-group]").forEach(btn => btn.addEventListener("click", () => { pickG = btn.dataset.group; sync(); }));
+  sync();
   setNav({});
-  goBtn.addEventListener("click", () => { if (pick) begin(pick.g, pick.gd); });   // 성별(남성은 상태까지) 고르면 켜짐
+  goBtn.addEventListener("click", () => { if (pickG && pickGd) begin(pickG, pickGd); });   // 성별·상태 둘 다 고르면 켜짐
 }
 function resetRun() {
   applyMode();
