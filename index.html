@@ -784,7 +784,8 @@ body.packing .toast { top: calc(40px + env(safe-area-inset-top, 0px)); bottom: a
 .fb-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .fb-tab { font: inherit; font-weight: 700; color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; cursor: pointer; min-height: 44px; }
 .fb-tab.on { border-color: var(--accent); background: var(--accent-soft); }
-.pro-skip { align-self: flex-end; }
+.pro-skip { position: fixed; z-index: 26; top: calc(44px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; background: var(--surface); box-shadow: 0 4px 14px rgba(0,0,0,.35); border-radius: 99px; transition: opacity .25s, transform .25s; }
+.pro-skip.gone { opacity: 0; transform: translateY(-8px); pointer-events: none; }
 .notice-in { margin: 6px 0 0; padding-top: 6px; border-top: 1px dashed var(--line); font-size: .92rem; }
 .notice-in.down { color: var(--bad); }
 .notice-in.up { color: var(--good); }
@@ -992,6 +993,18 @@ input, textarea, select { font-size: max(16px, 1em) !important; }
 .sg-card img { pointer-events: none; -webkit-user-drag: none; }
 /* 앞주머니 이름은 두 줄까지 (연락처 메모 등) */
 .pslot .rot .nm { white-space: normal; word-break: keep-all; line-height: 1.05; text-align: center; }
+/* 장면도 폰 한 화면에 최대한: 그림은 가로로 넓게 잘라 낮게(화면 높이의 30%), 간격·선택지 여백 줄임 */
+body.in-game .feed { gap: 18px; }
+body.in-game .feed-block { gap: 9px; }
+body.in-game .ep-art { width: 100%; max-width: 560px; aspect-ratio: auto; height: min(30vh, 280px); object-fit: cover; object-position: center 40%; border-radius: 12px; }
+body.in-game .story { font-size: 1rem; line-height: 1.55; margin: 0; }
+body.in-game .thought { margin: 0; font-size: .92rem; }
+body.in-game .options { gap: 7px; }
+body.in-game .choice { padding: 11px 12px; gap: 10px; font-size: .96rem; line-height: 1.4; }
+body.in-game .progress, body.in-game .stage { margin: 0; }
+body.in-game .inv-sum { padding: 2px 10px; }
+body.in-game .inv-sum summary { padding: 3px 0; font-size: .84rem; }
+body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 0; }
 </style>
 
 <header class="topbar">
@@ -3265,7 +3278,14 @@ function showPrologue(index) {   // index는 예전 호출 호환용 (항상 처
   });
   reveal(document.getElementById("howto-page"));
   document.getElementById("pack-go").addEventListener("click", startPacking);
-  if (canSkip) document.getElementById("pro-skip").addEventListener("click", () => { Sound.stopSiren(); startPacking(); });
+  if (canSkip) {
+    // 오른쪽 위에 떠 있는 팝업 버튼. 글을 읽으며 아래로 내리면 사라짐 (위로 올라오면 다시)
+    const sk = document.getElementById("pro-skip");
+    app.appendChild(sk);   // 첫 요소가 아니게 (맨 위 여백 규칙이 글 쪽에 걸리도록)
+    sk.addEventListener("click", () => { Sound.stopSiren(); startPacking(); });
+    const onScroll = () => { if (!sk.isConnected) { removeEventListener("scroll", onScroll); return; } sk.classList.toggle("gone", scrollY > 160); };
+    addEventListener("scroll", onScroll, { passive: true });
+  }
   window.scrollTo(0, 0);
   nudgeCheck();
 }
@@ -3546,10 +3566,10 @@ function bundleCardHtml(b) {
   if (bundlePick && bundlePick.id === b.id && !off) {
     return `<div class="item-card bundle-card pick" id="item-${b.id}">
         <button type="button" class="bb-unit" data-bunit="${b.id}" aria-label="${u.name} 낱개 하나 넣기">${u.emo} +1개<small>${left}개 남음</small></button>
-        <button type="button" class="bb-whole" data-bwhole="${b.id}" aria-label="${b.name} 전부 넣기" ${taken ? "disabled" : ""}>📦 전부<small>${b.w}×${b.h}칸</small></button>
+        <button type="button" class="bb-whole" data-bwhole="${b.id}" aria-label="${b.name} 전부 넣기" ${taken ? "disabled" : ""}>📦 전부</button>
       </div>`;
   }
-  const status = whole ? "✓ 전부 넣음" : taken ? `${taken}개 넣음 · ${left}개 남음` : `묶음 · ${b.w}×${b.h}칸 · ${b.kg}kg`;
+  const status = whole ? "✓ 전부 넣음" : taken ? `${left}개 남음` : "";   // 칸·무게는 안 적음 (이름에 개수가 있음)
   return `<button class="item-card" id="item-${b.id}" data-bundle="${b.id}" ${off ? "disabled" : ""}>
       <span class="emo">${b.emo}</span>
       <span style="min-width:0"><span class="name">${b.name}</span><span class="size">${status}</span></span>
@@ -3593,7 +3613,7 @@ function renderPack(message = "") {
           if (it.bundle) return bundleCardHtml(it);
           return `<button class="item-card" id="item-${id}" data-item="${id}" ${inBag ? "disabled" : ""}>
             <span class="emo">${it.emo}</span>
-            <span style="min-width:0"><span class="name">${it.name}</span><span class="size">${inBag ? "✓ 가방에 넣음" : `${it.small ? "앞주머니" : `${it.w}×${it.h}칸`} · ${it.kg}kg`}</span></span>
+            <span style="min-width:0"><span class="name">${it.name}</span>${inBag ? `<span class="size">✓ 넣음</span>` : ""}</span>
           </button>`;
         }).join("")}
       </div>
@@ -3605,9 +3625,9 @@ function renderPack(message = "") {
   {   // 물건 칸 안에서만 스크롤될 때: 아래에 더 있다는 표시 (끝까지 내리면 사라짐)
     const box = app.querySelector(".furn-items"), list = app.querySelector(".furn-list");
     if (box && list) {
-      const upd = () => list.classList.toggle("more", box.scrollHeight - box.scrollTop - box.clientHeight > 6);
+      const upd = () => { const last = box.lastElementChild; list.classList.toggle("more", !!last && last.getBoundingClientRect().bottom > box.getBoundingClientRect().bottom + 2); };   // 마지막 카드가 가려져 있을 때만
       box.addEventListener("scroll", upd, { passive: true });
-      requestAnimationFrame(upd);
+      requestAnimationFrame(upd); setTimeout(upd, 350); window.onresize = upd;   // 글꼴·그림이 늦게 잡혀도 다시 확인
     }
   }
   document.getElementById("pack-done").addEventListener("click", () => finishPacking(false));
