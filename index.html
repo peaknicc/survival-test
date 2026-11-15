@@ -3625,7 +3625,7 @@ function finishPacking(timeUp) {
     <p class="stage">19:57</p>
     <h2>${timeUp ? "시간 끝! 그대로 가방을 멨다." : "가방을 멨다."}</h2>
     ${bagHtml("view")}
-    <p><strong>챙긴 물건 (${kg}kg)</strong> · ${groupNames([...placed.map(p => p.id), ...pocket]).join(", ") || "아무것도 없음"}</p>
+    <p><strong>가방 무게 ${kg}kg</strong>${placed.length + pocket.length ? "" : " · 아무것도 챙기지 않았다"}</p>
     ${kg > SAFE_KG ? `<p class="msg">어깨가 묵직하다. 움직일 때마다 체력이 더 깎일 것 같다.</p>` : `<p class="note">가볍다. 이제 출발이다.</p>`}
     <p class="note">상황마다 화면 아래 가방에서 물건을 눌러 직접 꺼내 쓸 수 있어요. 물·음식은 언제든 먹어서 체력을 채울 수 있어요.</p>
     <button class="nav-primary highlight inline-go" id="depart-go">출발 →</button>`;
