@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-q4n2xJiBGmwkeMsU7vq3t0vRwwCPZHt54oDyQ2l7L0Y='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0tQ4xwQGqagQTGwSc05SaZsD+A4So9iZ/GzXvu2fUOI='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="전쟁이 나면, 나는 살아남을까? 정부 비상시 국민행동요령을 바탕으로 만든 가상 생존 테스트">
 <meta property="og:title" content="생존 테스트">
 <meta property="og:description" content="전쟁이 나면, 나는 살아남을까?">
@@ -714,8 +714,8 @@ body.packing .toast { top: calc(40px + env(safe-area-inset-top, 0px)); bottom: a
 .rd-face b { font-family: var(--font-display); font-size: 2.2rem; color: #ffb648; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
 .rd-face span { font-size: .85rem; min-height: 1.3em; color: #aaa; }
 .rd-face span.good { color: #7ddc8a; font-weight: 700; }
-.rd-dial { width: 100%; max-width: 300px; accent-color: var(--accent); height: 32px; }
-.rd-fine { display: flex; gap: 8px; }
+.rd-dial { width: 100%; max-width: 420px; accent-color: var(--accent); height: 32px; }
+.rd-help { margin: 6px 0 0; font-size: .85rem; opacity: .8; text-align: center; }
 .rd-lines { display: grid; gap: 8px; width: 100%; }
 .rd-line { text-align: left; font-size: .9rem; }
 .door { --gap: 0%; position: relative; width: 200px; height: 150px; border-radius: 12px; background: #111 linear-gradient(#333, #111); overflow: hidden; }
@@ -1148,7 +1148,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.23";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.24";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -3642,8 +3642,8 @@ function bagHtml(mode, list = placed, pk = pocket) {
     const nmFull = nmText + (inlineUses ? ` ×${uses[p.id]}` : "");
     // 한 칸 폭에 이름 맞추기: 띄어쓰기가 있으면 두 줄(낱말 단위), 네 글자 이상이면 조금 작게 한 줄
     const nmCls = wide ? " wide" : /\s/.test(nmFull) ? " two" : nmFull.length >= 4 ? " n4" : "";
-    // 한 칸짜리는 이름 글자가 너무 작아서 아이콘만 크게 (이름은 aria-label·title). 남은 개수는 구석에
-    const solo = p.w === 1 && p.h === 1 && !SHARED_EMO.has(item.emo), row = p.w >= 2 && p.h === 1;   // 가로로 긴 한 줄짜리는 아이콘 왼쪽·이름 오른쪽
+    // 한 칸짜리도 이름을 늘 보여 줌(v0.99.24, 사용자: 이름이 나왔다 안 나왔다 해서 헷갈림). 남은 개수는 이름 옆 ×N 한 가지 모양으로
+    const solo = false, row = p.w >= 2 && p.h === 1;   // 가로로 긴 한 줄짜리는 아이콘 왼쪽·이름 오른쪽
     const inner = solo ? `<span class="emo">${item.emo}</span>` : `<span class="emo">${item.emo}</span><span class="nm${nmCls}">${nmFull}</span>`;
     const usesTag = hasUses && (solo || !inlineUses) ? `<span class="uses">×${uses[p.id]}</span>` : solo && item.perCell && uses[p.id] > 1 ? `<span class="uses">×${uses[p.id]}</span>` : "";
     if (mode === "view") return `<div class="placed${solo ? " solo" : row ? " row" : ""}" title="${label}" style="${style}"><div class="rot">${inner}</div></div>`;
@@ -3975,7 +3975,8 @@ function startScene(index) {
     // 다음 장면에 도착해서 생긴 일: 시각을 앞에 붙여 구분, 숫자는 빼고 체력 줄 하나만 고쳐 씀
     const sum = prevOut.querySelector(".hp-sum");
     const txt = notice.text.replace(/\s*❤️\s*[+−-]\s*\d+/g, "");
-    (sum || prevOut.lastElementChild).insertAdjacentHTML(sum ? "beforebegin" : "afterend", `<p class="notice-in ${notice.up ? "up" : "down"}"><small class="ni-when">${scenes[index].stage.split(" · ")[0]}</small> ${txt}</p>`);
+    if (notice.img) { notice.cap = txt; notice.capUp = notice.up; }   // 그림이 붙은 사건은 앞 결과 칸 대신 그 그림 바로 밑에 적음(글과 그림이 떨어져 보이지 않게)
+    else (sum || prevOut.lastElementChild).insertAdjacentHTML(sum ? "beforebegin" : "afterend", `<p class="notice-in ${notice.up ? "up" : "down"}"><small class="ni-when">${scenes[index].stage.split(" · ")[0]}</small> ${txt}</p>`);
     if (hp !== from) {
       const line = `<p class="delta hp-sum ${hp < from ? "down" : "up"}">❤️ 체력 ${hp - from > 0 ? "+" : "−"}${Math.abs(hp - from)} <small>(${from} → ${hp})</small></p>`;
       if (sum) sum.outerHTML = line; else prevOut.insertAdjacentHTML("beforeend", line);
@@ -4002,7 +4003,7 @@ function startScene(index) {
       hp = clampHp(hp + res.hp);
       miniLog[index] = res.log;
       const t = `🎮 ${res.log}${res.hp ? ` · ❤️ ${res.hp > 0 ? "+" : ""}${res.hp}` : ""}`;
-      notice = notice && !notice.moved ? { up: notice.up && res.ok, text: notice.text + "<br>" + t } : { up: res.ok, text: t, img: notice ? notice.img : null };
+      notice = notice && !notice.moved ? { up: notice.up && res.ok, text: notice.text + "<br>" + t, img: notice.img } : { up: res.ok, text: t, img: notice ? notice.img : null, cap: notice ? notice.cap : null, capUp: notice ? notice.capUp : null };
       if (hp <= 0) { showResult(); return; }
       beginScene(index);
       const lv = document.getElementById("live"); if (lv && feed) setTimeout(() => lv.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -4108,12 +4109,15 @@ function renderScene(index) {
   const owned = [...placed.map(p => p.id), ...pocket];
   const hasItemAnswer = Object.keys(s.items).length > 0;
   const shownCombos = (s.combos || []).map((c, k) => ({ c, k, id: comboItem(c) })).filter(x => x.id);   // 가진 물건으로 할 수 있는 것만
+  const capText = notice && notice.img ? (notice.cap || (!notice.moved ? notice.text : "")) : "";
+  const restText = notice && !notice.moved && !(notice.img && !notice.cap) ? notice.text : "";
   const live = feedLive(index);
   live.innerHTML = `
     <div class="progress"><span class="stage">${s.stage}</span><span>${index + 1} / ${scenes.length}</span></div>   <!-- 시간·장면 이름과 진행을 한 줄로 -->
     ${notice && notice.img && EP_IMG[notice.img] ? `<img class="ep-art bf-art" src="${EP_IMG[notice.img]}" alt="">` : EP_IMG[s.imgKey] ? `<img class="ep-art" src="${EP_IMG[s.imgKey]}" alt="">` : s.cut ? `<div class="cut" aria-hidden="true"><span class="emo">${s.cut}</span>${s.bubble ? `<span class="bubble">${s.bubble}</span>` : ""}</div>` : ""}
+    ${capText ? `<p class="notice bf-cap ${(notice.cap ? notice.capUp : notice.up) ? "up" : "down"}">${capText}</p>` : ""}
     ${s.announce && !s.alert && !/방송/.test(s.story) ? `<p class="announce">📢 안내방송 “${s.announce}”</p>` : ""}
-    ${notice && !notice.moved ? `<p class="notice ${notice.up ? "up" : "down"}">${notice.text}</p>` : ""}
+    ${restText ? `<p class="notice ${notice.up ? "up" : "down"}">${restText}</p>` : ""}
     ${s.siren ? `<p class="siren-tag"><span class="siren-dot"></span>${s.siren}</p>` : ""}
     ${s.alert ? `<div class="alert-card"><span class="head">긴급 알림 · 가상 상황</span><span>${s.alert}</span></div>` : ""}
     <p class="story${storyOpen.has(index) ? "" : " clamp"}" data-story="${index}">${(s.storyAlt && s.storyAlt()) || s.story}</p>
@@ -4737,7 +4741,7 @@ const MINI = {
         <p class="mini-tag">📻 주파수 · ${LIMIT}초 안에</p>
         <div class="rd-face"><b id="rd-freq"></b><span id="rd-noise"></span></div>
         <input type="range" id="rd-dial" class="rd-dial" min="${RD_MIN}" max="${RD_MAX}" step="1" value="${start}" aria-label="주파수 다이얼">
-        <div class="rd-fine"><button class="btn ghost small" type="button" data-d="-1">◀ 0.1</button><button class="btn ghost small" type="button" data-d="1">0.1 ▶</button></div>
+        <p class="rd-help">👆 막대의 동그란 손잡이를 좌우로 끌어서 FM 97.3에 맞추세요</p>
         <div class="rd-lines" id="rd-lines"></div>
         <p class="mini-live">남은 시간 <b id="rd-left">${LIMIT}.0</b>초</p>`;
       const dial = document.getElementById("rd-dial"), freqEl = document.getElementById("rd-freq"), noise = document.getElementById("rd-noise");
@@ -4763,7 +4767,8 @@ const MINI = {
         }
       };
       dial.addEventListener("input", () => { moved = true; update(); });
-      box.querySelectorAll("[data-d]").forEach(b => b.addEventListener("click", () => { moved = true; dial.value = Number(dial.value) + Number(b.dataset.d); update(); }));
+      // 0.1 버튼을 없앤 대신: 손을 뗐을 때 97.3 가까이면 딱 맞춰 줌(라디오 자동 맞춤처럼). 보통 ±0.2, 하드 ±0.1
+      dial.addEventListener("change", () => { if (!ended && Math.abs(Number(dial.value) - TARGET) <= (hardMode ? 1 : 2)) { dial.value = TARGET; update(); } });
       update();
       iv = setInterval(() => {
         const left = LIMIT - (performance.now() - t0) / 1000;
