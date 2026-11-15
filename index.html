@@ -1040,6 +1040,12 @@ body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; f
 .ua-name { font-weight: 800; font-size: .86rem; margin-right: 4px; }
 .ua-btn { font: inherit; font-weight: 700; font-size: .86rem; padding: 7px 12px; border-radius: 8px; border: 0; background: var(--accent); color: #1d211b; cursor: pointer; }
 .ua-btn.ghost { background: none; border: 1.5px solid var(--line); color: var(--fg); }
+/* 프롤로그 건너뛰기: 글 맨 위 오른쪽, 내리면 위쪽에 붙어 따라옴 */
+.pro-skip { position: sticky !important; top: calc(44px + env(safe-area-inset-top, 0px)) !important; left: auto !important; transform: none !important; align-self: flex-end; z-index: 26; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+/* 가방 다 싼 화면: 한 화면에 */
+.packed { display: grid; gap: 8px; }
+.packed .bag, .packed .pocket { max-width: min(420px, calc(46vh * 1.2)); }
+.packed p { margin: 0; }
 </style>
 
 <header class="topbar">
@@ -1122,7 +1128,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.15";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.16";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -1357,7 +1363,7 @@ const SHELTER_ROUTE = [
     items: {
       light: { p: 10, r: "손전등을 켰다. 발밑과 비상구 표시가 보인다. 넘어진 사람도 일으켜 줬다." },
       battery: { p: 7, r: "보조배터리를 꽂고 휴대폰 플래시를 켰다. 배터리 걱정은 덜었다." },
-      lighter: { p: 3, r: "라이터를 켰지만 금방 손이 뜨거워졌다. 옆 사람이 '불 끄세요!' 하고 소리쳤다." }
+      lighter: { p: 3, r: "라이터를 켰지만 금방 손이 뜨거워져 오래 켤 수 없었다. 사람 많은 지하에서 불을 켜니 주변도 불안해했다." }
     },
     tip: "비상용품에 손전등이 들어가는 이유예요. 라이터·촛불은 화재 위험이 있고, 공습 중 밤에는 불빛이 밖으로 새지 않게 막아야 해요(차광). 휴대폰은 통신이 돌아올 때를 위해 배터리를 아껴 두세요.",
     src: ["s2", "s3"]
@@ -3145,6 +3151,13 @@ function hpFx() {
 // 장면 화면은 #feed-meters 안쪽만, 미니게임은 덮는 창(body 바로 아래)만 다시 그려서 문서 전체를 지켜봄
 new MutationObserver(hpFx).observe(document.body, { childList: true, subtree: true });
 
+// 🧬 내 유형 목록: 하나를 펼치면 다른 회차는 접힘
+document.addEventListener("toggle", e => {
+  const d = e.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.open || !d.matches("details.type-now, .type-past > details.sec")) return;
+  const g = d.closest("#panel-type") || d.closest(".type-past");
+  if (g) g.querySelectorAll("details.type-now, .type-past > details.sec").forEach(x => { if (x !== d) x.open = false; });
+}, true);
 // ───────── 시작 ─────────
 function showStart() {
   stopTimer(); stopUrgent(); stopMini();
@@ -3298,7 +3311,7 @@ function showPrologue(index) {   // index는 예전 호출 호환용 (항상 처
   const PRO = LOCS[startLoc].prologue;
   const imgKey = i => `PRO_${startLoc.toUpperCase()}_${i}`;
   const canSkip = playedLoc(startLoc);   // 이 장소를 끝까지 해 본 사람만
-  app.innerHTML = `${canSkip ? `<button class="btn ghost small pro-skip" id="pro-skip" type="button">프롤로그 건너뛰기 ⏭</button>` : ""}<div class="feed">${PRO.map((s, i) => `
+  app.innerHTML = `${canSkip ? `<button class="btn ghost small pro-skip" id="pro-skip" type="button">건너뛰기 ⏭</button>` : ""}<div class="feed">${PRO.map((s, i) => `
     <section class="feed-block pro-page" data-i="${i}">
       <div class="progress"><span>${GROUPS[group].label}</span><span>${LOCS[startLoc].label} · 프롤로그 ${i + 1} / ${PRO.length}</span></div>
       <p class="stage">${s.stage}</p>
@@ -3332,10 +3345,7 @@ function showPrologue(index) {   // index는 예전 호출 호환용 (항상 처
   if (canSkip) {
     // 오른쪽 위에 떠 있는 팝업 버튼. 글을 읽으며 아래로 내리면 사라짐 (위로 올라오면 다시)
     const sk = document.getElementById("pro-skip");
-    app.appendChild(sk);   // 첫 요소가 아니게 (맨 위 여백 규칙이 글 쪽에 걸리도록)
     sk.addEventListener("click", () => { Sound.stopSiren(); startPacking(); });
-    const onScroll = () => { if (!sk.isConnected) { removeEventListener("scroll", onScroll); return; } sk.classList.toggle("gone", scrollY > 160); };
-    addEventListener("scroll", onScroll, { passive: true });
   }
   window.scrollTo(0, 0);
   nudgeCheck();
@@ -3718,13 +3728,12 @@ function finishPacking(timeUp) {
   [...placed.map(p => p.id), ...pocket].forEach(id => { if (ITEM_BY_ID[id].uses) uses[id] = ITEM_BY_ID[id].uses; });
   const kg = bagKg();
   app.innerHTML = `
-    <p class="stage">19:57</p>
-    <h2>${timeUp ? "시간 끝! 그대로 가방을 멨다." : "가방을 멨다."}</h2>
+    <div class="packed">${timeUp ? `<p class="note packed-up">⏱ 시간 끝! 챙긴 그대로 출발해요.</p>` : ""}
     ${bagHtml("view")}
     <p><strong>가방 무게 ${kg}kg</strong>${placed.length + pocket.length ? "" : " · 아무것도 챙기지 않았다"}</p>
     ${kg > SAFE_KG ? `<p class="msg">어깨가 묵직하다. 움직일 때마다 체력이 더 깎일 것 같다.</p>` : `<p class="note">가볍다. 이제 출발이다.</p>`}
-    <p class="note">상황마다 화면 아래 가방에서 물건을 눌러 직접 꺼내 쓸 수 있어요. 물·음식은 언제든 먹어서 체력을 채울 수 있어요.</p>
-    <button class="nav-primary highlight inline-go" id="depart-go">출발 →</button>`;
+    <p class="note">장면마다 위쪽 🎒 내 물건을 눌러 물건을 꺼내 쓸 수 있어요.</p>
+    <button class="nav-primary highlight inline-go" id="depart-go">출발 →</button></div>`;
   setNav({ game: true, back: true });
   document.getElementById("depart-go").addEventListener("click", () => startScene(0));
   window.scrollTo(0, 0);
@@ -4080,9 +4089,6 @@ function renderScene(index) {
           <span class="key">${"ABCDE"[n]}</span><span>${a.t}${sub}</span>
         </button>`;
       }).join("")}
-      ${shownCombos.map(({ c, k, id }) => `<button class="choice combo-choice" data-combo="${k}">
-          <span class="key">🎒</span><span>${c.t}<small>가방의 ${jo(nameOf(id), "을", "를")} 같이 써요</small></span>
-        </button>`).join("")}
     </div>
     <p class="msg${sceneMsgOk ? " ok" : ""}" id="scene-msg">${sceneMsg}</p>`;
 
@@ -4206,7 +4212,9 @@ function consume(id) {
 }
 
 // 이 물건이 지금 장면의 물건 답인지
-const sceneHit = (s, id) => { const it = ITEM_BY_ID[id]; return s && s.items ? s.items[id] || (it.cat && s.items[it.cat]) : null; };
+const sceneHit = (s, id) => { const it = ITEM_BY_ID[id]; return s && s.items ? s.items[id] || (it.cat && s.items[it.cat]) || comboHit(s, id) : null; };
+// 예전 '가방의 ○○를 같이 써요' 선택지(combos)도 가방에서 그 물건을 누르면 씀
+function comboHit(s, id) { const c = (s.combos || []).find(c => matchesNeed(id, c.needAny)); return c ? { ...comboChoice(c, id), combo: true } : null; }
 const eatVerb = it => /생수|물|커피/.test(it.name) ? "마신다" : "먹는다";
 const GIVEABLE = ["med", "towel", "blanket", "clothes", "vitamin", "tylenol", "pillpouch", "mask"];
 // 가방에서 물건을 누르면 나오는 버튼들: [act, 글자]
@@ -4215,6 +4223,7 @@ function useActions(index, id) {
   if (hit && s.giveTo && (it.heal || GIVEABLE.includes(baseOf(id)))) out.push(["scene", `${s.giveTo}에게 준다`]);
   else if (hit) out.push(["scene", it.heal ? eatVerb(it) : "지금 쓴다"]);
   if (it.heal && !(hit && !s.giveTo)) out.push(["self", `내가 ${eatVerb(it)}`]);
+  else if (hit && s.giveTo) out.push(["self", "내가 쓴다"]);
   if (!hit && !it.heal) out.push(["scene", "지금 써 본다"]);
   out.push(["cancel", "취소"]);
   return out;
@@ -4227,6 +4236,8 @@ function useItem(index, id) {
     toast(`🗑 ${jo(nameOf(id), "을", "를")} 버렸어요. 자리가 생겼어요.`, true);
     rerender(() => renderScene(index)); return;
   }
+  const acts = useActions(index, id).filter(a => a[0] !== "cancel");
+  if (acts.length === 1 && acts[0][0] === "scene" && sceneHit(scenes[index], id)) { pickerOpen = false; applyUse(index, id, "scene"); return; }   // 맞는 물건·방법 하나면 바로
   pendingUse = pendingUse === id ? null : id;   // 고른 물건 아래에 버튼이 나옴
   rerender(() => renderScene(index));
 }
@@ -4234,12 +4245,14 @@ function applyUse(index, id, act) {
   pendingUse = null;
   if (act === "cancel") { rerender(() => renderScene(index)); return; }
   const s = scenes[index], it = ITEM_BY_ID[id], hit = sceneHit(s, id);
+  if (act === "scene" && hit && hit.combo) { logUse(id, index); if (hit.useId) consume(hit.useId); resolve(index, hit); return; }
   if (act === "scene" && hit) {
     logUse(id, index); consume(id);
     const selfEat = it.heal && it.uses && !s.giveTo;   // 내가 먹는 게 답인 장면만 체력도 채움
     resolve(index, { label: `🎒 ${nameOf(id)} 사용`, ...hit, hp: (hit.hp || 0) + (selfEat ? it.heal : 0), fromItem: true });
     return;
   }
+  if (act === "self" && !it.heal) { toast(`${jo(nameOf(id), "은", "는")} 지금 나에겐 필요 없어 보인다.`, false); rerender(() => renderScene(index)); return; }
   if (act === "self" && it.heal) {
     logUse(id, index); consume(id);
     hp = clampHp(hp + it.heal);
@@ -4808,8 +4821,7 @@ const MINI = {
           <p class="mini-tag"><span class="ic ic-search"></span>표지 찾기 · ${round} / ${ROUNDS}</p>
           <p class="sg-timer">⏱ <b id="sg-left">${SEC}</b>초</p>
           <div class="hold-bar sg-urgent"><i id="sg-fill" style="width:100%"></i></div>
-          <div class="sg-grid${nCards > 4 ? " sg-many" : ""}" style="grid-template-columns:repeat(${nCards > 4 ? 3 : 2},1fr)${hardMode ? `;filter:saturate(${(round >= 7 ? 0.03 : 0.5 - (round - 1) * 0.07).toFixed(2)})` : ""}">${cards.map(cardHtml).join("")}</div>
-          <p class="mini-live">맞힌 수 <b>${right}</b></p>`;
+          <div class="sg-grid${nCards > 4 ? " sg-many" : ""}" style="grid-template-columns:repeat(${nCards > 4 ? 3 : 2},1fr)${hardMode ? `;filter:saturate(${(round >= 7 ? 0.03 : 0.5 - (round - 1) * 0.07).toFixed(2)})` : ""}">${cards.map(cardHtml).join("")}</div>`;
         box.classList.remove("sg-shake", "sg-shake1");
         if (round === 1) { void box.offsetWidth; box.classList.add("sg-shake"); }
         else if (hardMode && round === 9) { void box.offsetWidth; box.classList.add("sg-shake1"); }   // 하드 9번: 한 번 살짝   // 첫 판: 화면 흔들림
@@ -5577,10 +5589,14 @@ function showAfter(ending) {
   let shown = false;
   const reveal = () => {
     if (shown || !box.isConnected) return; shown = true; clearInterval(tm);
-    const keep = `<section class="after-page done"><p class="after-tag">📅 그 뒤</p><p class="after-text">${text}</p></section>`;
+    const sec = app.querySelector(".after-page");
+    next.remove();
     showResult();
-    app.insertAdjacentHTML("afterbegin", keep);
-    [...app.children].slice(1).forEach((el, i) => { el.classList.add("res-in"); el.style.animationDelay = Math.min(i * 90, 900) + "ms"; });
+    const main = document.getElementById("res-main");
+    if (main) main.prepend(sec); else app.prepend(sec);
+    [...(main || app).children].slice(1).forEach((el, i) => { el.classList.add("res-in"); el.style.animationDelay = Math.min(i * 90, 900) + "ms"; });
+    window.scrollTo(0, 0);
+    setTimeout(() => { const t = sec.nextElementSibling; if (t) window.scrollTo({ top: t.getBoundingClientRect().top + scrollY - 10, behavior: "smooth" }); }, 500);
   };
   const done = () => { clearInterval(tm); box.textContent = text; setTimeout(reveal, 700); };
   const tm = setInterval(() => { if (!box.isConnected) { clearInterval(tm); return; } n += 1; box.textContent = chars.slice(0, n).join(""); if (n >= chars.length) done(); }, 55);
