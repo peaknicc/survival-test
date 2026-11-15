@@ -1031,6 +1031,15 @@ body.in-game .notice, body.in-game .siren-tag, body.in-game .announce { margin: 
 /* 묶음 물건을 누르면 두 칸 너비로 펼쳐서 "+1개 / 전부"가 겹치지 않게 */
 body.packing .furn-items .bundle-card.pick { grid-column: span 2; grid-template-columns: 1fr 1fr; justify-items: stretch; align-items: stretch; padding: 5px; gap: 5px; }
 body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; font-size: .8rem; }
+/* 쓸 물건이 있을 때 내 물건 막대가 반짝 */
+.inv-bar.glow { border-color: var(--accent); animation: invGlow 1.6s ease-in-out infinite; }
+@keyframes invGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,183,51,0); } 50% { box-shadow: 0 0 0 4px rgba(242,183,51,.35); } }
+@media (prefers-reduced-motion: reduce) { .inv-bar.glow { animation: none; } }
+/* 고른 물건의 쓸 방법 버튼 */
+.use-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--accent-soft); }
+.ua-name { font-weight: 800; font-size: .86rem; margin-right: 4px; }
+.ua-btn { font: inherit; font-weight: 700; font-size: .86rem; padding: 7px 12px; border-radius: 8px; border: 0; background: var(--accent); color: #1d211b; cursor: pointer; }
+.ua-btn.ghost { background: none; border: 1.5px solid var(--line); color: var(--fg); }
 </style>
 
 <header class="topbar">
@@ -1113,7 +1122,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.14";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.15";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2070,6 +2079,10 @@ Object.assign(GROUP_SCENES.B[1].items.id, { coop: 1, duty: 1 });
 tagAct(SHELTER_ROUTE[5], 2, { coop: -1 }); tagAct(EVAC_ROUTE[0], 1, { coop: -1 });
 tagAct(GROUP_SCENES.A[1], 1, { coop: -1 }); tagAct(EVADE_ROUTE[0], 2, { coop: -1 });
 
+// 🎒 물건을 남에게 주는 장면: 가방에서 '○○에게 준다' 버튼이 나옴
+NEIGHBOR_ROUTE[1].giveTo = "할아버지";
+EVAC_ROUTE[1].giveTo = "아이";
+GROUP_SCENES.C[1].giveTo = "아이";
 // ───────── 글 줄이기 + 이모지 만화 컷 (2026-11-13 · 제미나이 답 + Claude 검수, 원본: Dev/최종_글줄이기.json) ─────────
 // 점수·효과(p, hp, move…)는 그대로 두고 문장(t, r, story, thought, alert)만 바꾼다. cut/bubble은 장면 맨 위 컷.
 (() => {
@@ -4076,6 +4089,8 @@ function renderScene(index) {
   clampFix(live);
   staggerOptions(live, index);
   { const fm = document.getElementById("feed-meters"); if (fm) fm.innerHTML = metersHtml("scene"); }   // 내 물건 막대가 고정 줄에 있어서 같이 새로 그림
+  // 처음 반짝일 때 한 번만 안내 (기기마다 한 번)
+  if (document.querySelector(".inv-bar.glow")) { let seen = false; try { seen = localStorage.getItem("survival-test-glowtip") === "1"; } catch (e) {} if (!seen) { try { localStorage.setItem("survival-test-glowtip", "1"); } catch (e) {} toast("🎒 가방에 쓸 만한 물건이 있으면 위쪽 내 물건이 반짝여요. 눌러서 찾아보세요!", true); } }
   setNav({ game: true, back: true });
   live.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => {
     const a = s.actions[Number(b.dataset.a)];
@@ -4168,12 +4183,15 @@ function logUse(id, index) { usedLog.push({ id, idx: index, st: scenes[index] ? 
 function invHtml(index) {
   usedLog = usedLog.filter(u => u.idx <= index);
   const s = scenes[index], empty = !placed.length && !pocket.length;
-  const hint = hardMode || !s || !Object.keys(s.items || {}).length ? "" : `힌트: ${s.itemHint || "지금 상황에 맞는 물건"}`;
+  const owned = [...placed.map(q => q.id), ...pocket];
+  const glow = !hardMode && !pickerOpen && !results[index] && owned.some(id => sceneHit(s, id));   // 쓸 물건이 있으면 반짝(무슨 물건인지는 안 알려 줌)
+  const hint = glow ? "쓸 만한 물건이 있어요" : "";
   return `<div class="inv-wrap">
-    <button class="inv-bar${pickerOpen ? " open" : ""}" id="open-picker" type="button" aria-expanded="${pickerOpen}" ${empty ? "disabled" : ""}>🎒 내 물건 <span class="inv-arrow">${pickerOpen ? "▴" : "▾"}</span>${empty ? `<small>가방이 비어 있다</small>` : hint ? `<small>${hint}</small>` : ""}</button>
+    <button class="inv-bar${pickerOpen ? " open" : ""}${glow ? " glow" : ""}" id="open-picker" type="button" aria-expanded="${pickerOpen}" ${empty ? "disabled" : ""}>🎒 내 물건 <span class="inv-arrow">${pickerOpen ? "▴" : "▾"}</span>${empty ? `<small>가방이 비어 있다</small>` : hint ? `<small>${hint}</small>` : ""}</button>
     ${pickerOpen && !empty ? `<div class="inv-panel picker${dropMode ? " drop" : ""}">
-      <p class="note">${dropMode ? "🗑 <strong>버릴 물건</strong>을 골라 한 번 더 누르면 버려요" : "물건을 고르고 <strong>한 번 더 누르면</strong> 써요 · 물·음식은 먹어서 체력을 채워요"}</p>
+      <p class="note">${dropMode ? "🗑 <strong>버릴 물건</strong>을 골라 한 번 더 누르면 버려요" : "물건을 누르면 쓸 방법이 나와요"}</p>
       ${bagHtml("use")}
+      ${pendingUse && !dropMode && ITEM_BY_ID[pendingUse] ? `<div class="use-acts"><span class="ua-name">${nameOf(pendingUse)}</span>${useActions(index, pendingUse).map(([k, t]) => `<button type="button" class="ua-btn${k === "cancel" ? " ghost" : ""}" data-uact="${k}">${t}</button>`).join("")}</div>` : ""}
       <button class="btn ghost small drop-toggle" id="drop-toggle" type="button">${dropMode ? "✓ 버리기 끝" : "🗑 물건 버리기"}</button>
     </div>` : ""}
   </div>`;
@@ -4187,37 +4205,52 @@ function consume(id) {
   if (uses[id] <= 0) { placed = placed.filter(p => p.id !== id); pocket = pocket.filter(x => x !== id); }
 }
 
+// 이 물건이 지금 장면의 물건 답인지
+const sceneHit = (s, id) => { const it = ITEM_BY_ID[id]; return s && s.items ? s.items[id] || (it.cat && s.items[it.cat]) : null; };
+const eatVerb = it => /생수|물|커피/.test(it.name) ? "마신다" : "먹는다";
+const GIVEABLE = ["med", "towel", "blanket", "clothes", "vitamin", "tylenol", "pillpouch", "mask"];
+// 가방에서 물건을 누르면 나오는 버튼들: [act, 글자]
+function useActions(index, id) {
+  const s = scenes[index], it = ITEM_BY_ID[id], hit = sceneHit(s, id), out = [];
+  if (hit && s.giveTo && (it.heal || GIVEABLE.includes(baseOf(id)))) out.push(["scene", `${s.giveTo}에게 준다`]);
+  else if (hit) out.push(["scene", it.heal ? eatVerb(it) : "지금 쓴다"]);
+  if (it.heal && !(hit && !s.giveTo)) out.push(["self", `내가 ${eatVerb(it)}`]);
+  if (!hit && !it.heal) out.push(["scene", "지금 써 본다"]);
+  out.push(["cancel", "취소"]);
+  return out;
+}
 function useItem(index, id) {
-  if (pendingUse !== id) {   // 잘못 눌러 바로 먹지 않게: 한 번 더 눌러야 씀
-    pendingUse = id;
-    toast(dropMode ? `${jo(nameOf(id), "을", "를")} 버릴까요? 한 번 더 누르면 버려요.` : `${jo(nameOf(id), "을", "를")} 쓸까요? 한 번 더 누르면 써요.`, true);
-    rerender(() => renderScene(index)); return;
-  }
-  pendingUse = null;
-  if (dropMode) {
+  if (dropMode) {   // 버리기는 실수 방지로 한 번 더 눌러야
+    if (pendingUse !== id) { pendingUse = id; toast(`${jo(nameOf(id), "을", "를")} 버릴까요? 한 번 더 누르면 버려요.`, true); rerender(() => renderScene(index)); return; }
+    pendingUse = null;
     placed = placed.filter(p => p.id !== id); pocket = pocket.filter(x => x !== id); delete uses[id];
     toast(`🗑 ${jo(nameOf(id), "을", "를")} 버렸어요. 자리가 생겼어요.`, true);
     rerender(() => renderScene(index)); return;
   }
-  const s = scenes[index], it = ITEM_BY_ID[id];
-  const hit = s.items[id] || (it.cat && s.items[it.cat]);
-  if (hit) {
+  pendingUse = pendingUse === id ? null : id;   // 고른 물건 아래에 버튼이 나옴
+  rerender(() => renderScene(index));
+}
+function applyUse(index, id, act) {
+  pendingUse = null;
+  if (act === "cancel") { rerender(() => renderScene(index)); return; }
+  const s = scenes[index], it = ITEM_BY_ID[id], hit = sceneHit(s, id);
+  if (act === "scene" && hit) {
     logUse(id, index); consume(id);
-    resolve(index, { label: `🎒 ${nameOf(id)} 사용`, ...hit, hp: (hit.hp || 0) + (it.heal && it.uses ? it.heal : 0), fromItem: true });
+    const selfEat = it.heal && it.uses && !s.giveTo;   // 내가 먹는 게 답인 장면만 체력도 채움
+    resolve(index, { label: `🎒 ${nameOf(id)} 사용`, ...hit, hp: (hit.hp || 0) + (selfEat ? it.heal : 0), fromItem: true });
     return;
   }
-  if (it.heal) {
+  if (act === "self" && it.heal) {
     logUse(id, index); consume(id);
     hp = clampHp(hp + it.heal);
-    toast(`${nameOf(id)}: 먹고 나니 기운이 난다. ❤️ +${it.heal}`, true);
+    toast(`${nameOf(id)}: ${eatVerb(it) === "마신다" ? "마시고" : "먹고"} 나니 기운이 난다. ❤️ +${it.heal}`, true);
   } else if (!Object.keys(s.items).length) {   // 물건으로 푸는 장면이 아니면 감점 없이 안내만
     toast(`${jo(nameOf(id), "은", "는")} 지금은 쓸 데가 없다. 선택지 중에서 골라 보자.`, false);
   } else if (tried.includes(id)) {      // 같은 물건을 또 눌러도 감점은 한 번만
-    toast(`${jo(nameOf(id), "은", "는")} 아까 꺼내 봤지만 소용없었다. 💡 ${jo(s.itemHint || "다른 물건", "이", "가")} 필요해.`, false);
+    toast(`${jo(nameOf(id), "은", "는")} 아까 꺼내 봤지만 소용없었다.`, false);
   } else {
     tried.push(id); penalty += 2;
-    // 넘어가지 않고, 무엇이 필요한지 다시 알려 줌
-    toast(`${jo(nameOf(id), "을", "를")} 꺼내 봤지만… 지금은 안 맞는 것 같다. 💡 ${jo(s.itemHint || "다른 물건", "이", "가")} 필요해. 다른 물건이나 선택지를 골라 보자.`, false);
+    toast(`${jo(nameOf(id), "을", "를")} 꺼내 봤지만… 지금은 안 맞는 것 같다. 다른 물건이나 선택지를 골라 보자.`, false);
   }
   rerender(() => renderScene(index));
 }
@@ -4229,6 +4262,7 @@ document.addEventListener("click", e => {
   const index = Number(lv.dataset.idx);
   if (e.target.closest("#open-picker")) { pickerOpen = !pickerOpen; dropMode = false; pendingUse = null; rerender(() => renderScene(index)); return; }
   if (e.target.closest("#drop-toggle")) { dropMode = !dropMode; pendingUse = null; rerender(() => renderScene(index)); return; }
+  const ua = e.target.closest("[data-uact]"); if (ua && pendingUse) { applyUse(index, pendingUse, ua.dataset.uact); return; }
   const u = e.target.closest("[data-use]"); if (u) useItem(index, u.dataset.use);
 });
 // ───────── 🎮 미니게임 · ⏱ 시간 제한 ─────────
