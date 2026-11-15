@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-iUZlAjklS/51XFiTmxGXyG5qgJlqHxx78kumd5R738A='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-lWseHqZH5DCo3Fs8Ga6dKJOEHWEqNM7CG72n7yLR1JM='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com/macros/s/AKfycbxFNz24Nn0Qtf-psUV4wNHGdWn5c7VgjdgjzTr3EuoVSjVLqBZp1ci6v0XR8S1Ar300RA/exec https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="전쟁이 나면, 나는 살아남을까? 정부 비상시 국민행동요령을 바탕으로 만든 가상 생존 테스트">
 <meta property="og:title" content="생존 테스트">
 <meta property="og:description" content="전쟁이 나면, 나는 살아남을까?">
@@ -1066,6 +1066,8 @@ body.packing .furn-items .bundle-card.pick button { width: 100%; min-width: 0; f
 /* 건너뛰기를 ⌂·소리 버튼과 같은 높이·줄에 */
 .pro-skip { box-sizing: border-box; height: 34px !important; min-height: 34px !important; margin: 0 !important; padding: 0 14px !important; display: inline-flex !important; align-items: center; justify-content: center; line-height: 1 !important; font-size: .84rem !important; }
 .pro-skip { border-radius: 12px !important; border: 1.5px solid var(--line) !important; background: var(--surface) !important; font-weight: 700; }
+/* v0.99.26: 긴급 알림 카드·주울 물건 칸이 있는 장면은 그림을 낮춰 선택지가 한 화면에 들어오게 */
+body.in-game #live:has(.alert-card) .ep-art, body.in-game #live:has(.loot-box:not(.done)) .ep-art, body.in-game #live:has(.options .choice:nth-child(4)) .ep-art { height: min(20vh, 180px); }
 </style>
 
 <header class="topbar">
@@ -1148,7 +1150,7 @@ function applyMode() {
     if (L.seconds === 30) PACK_SECONDS = hardMode ? 20 : 30;
   }
 }
-const APP_VERSION = "v0.99.25";   // 정식 전 시험판. 배포할 때마다 올림
+const APP_VERSION = "v0.99.26";   // 정식 전 시험판. 배포할 때마다 올림
 const ARTIFACT_URL = location.origin + location.pathname;
 const SAFE_KG = 6;            // 이 무게를 넘으면 이동할 때마다 체력이 더 깎임
 const MAX_KG = 15;            // 가방끈이 버틸 수 있는 최대 무게
@@ -2331,8 +2333,28 @@ function saveFound(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(
   all.forEach(s => { const b = s.items && s.items.id; if (b && !s.items.passport && typeof b.r === "string") s.items.passport = { ...b, r: b.r.replace(/신분증/g, "여권") }; });
   const C1 = GROUP_SCENES.C[1], med = C1.items.med;
   if (med) {
-    C1.items.tylenol = { ...med, r: "아이 엄마에게 진통제를 건네 통증을 덜게 했다. 사람들이 도와 달라며 모였다." };
+    C1.items.tylenol = null;   // 진통제로는 피나는 상처를 소독·지혈할 수 없음 → 안 맞는 물건(sceneHit이 null을 존중)
+    C1.items.towel = { ...med, p: med.p - 2, r: "깨끗한 수건으로 아이 팔의 피를 닦고 꾹 눌러 감싸 줬다." };
+    C1.items.hanky = { ...med, p: med.p - 2, r: "깨끗한 손수건으로 아이 팔의 피를 닦고 꾹 눌러 감싸 줬다." };
     C1.items.pillpouch = { ...med, r: "약 파우치의 소독약과 밴드로 아이 상처를 감쌌다. 사람들이 도와 달라며 모였다." };
+  }
+  // 🍞 과자·빵·생수 2병은 묶음(cat)이 없어 먹을거리·물 장면에서 빠져 있었음 (v0.99.26, 제미나이 물건누락 검수). cat을 주면 가방 점수·추천이 바뀌어서 장면에만 더함
+  all.forEach(sc => {
+    const it = sc.items || {};
+    if (it.food) for (const x of ["snack", "bread"]) if (!(x in it)) it[x] = { ...it.food };
+    if (it.water && !("bottle" in it)) it.bottle = { ...it.water };
+    (sc.combos || []).forEach(c => {
+      if (c.needAny.includes("water") && !c.needAny.includes("bottle")) c.needAny.push("bottle");
+      if (c.needAny.includes("food")) for (const x of ["snack", "bread"]) if (!c.needAny.includes(x)) c.needAny.push(x);
+    });
+  });
+  const like = (sc, name) => Object.entries(sc.items).find(([k]) => ITEM_BY_ID[k] && ITEM_BY_ID[k].name === name);
+  const glove = like(SHELTER_ROUTE[3], "고무장갑");
+  if (glove) SHELTER_ROUTE[3].items.raincoat = { ...glove[1], r: "우비를 뒤집어써 피부를 가리고 위층으로 올라갔다." };
+  const tape = HOME_ROUTE[3].items.tape;
+  if (tape) {
+    HOME_ROUTE[3].items.blanket = { ...tape, r: "담요를 둘둘 감고 깨진 창 옆에서 밤을 버텼다." };
+    HOME_ROUTE[3].items.clothes = { ...tape, p: tape.p - 1, r: "옷을 몇 겹 껴입고 깨진 창 옆에서 추위를 버텼다." };
   }
 })();
 // ───────── 상태 ─────────
@@ -3833,17 +3855,17 @@ function enterScene(s) {
 }
 // 🦋 나비효과 결과 (장면에 들어갈 때 한 번씩). img = 웹툰 컷 키
 const BUTTERFLY = [
-  { key: "cpr", img: "BF_CPR_THANKS", hp: 6, when: s => flags.a_cpr && flags.cprAt != null && scenes.indexOf(s) === flags.cprAt + 1,
-    text: "🫀 가슴압박을 해 준 분의 가족이 찾아와 \"덕분에 살았어요\" 하며 손을 꼭 잡고 고마워했다. 마음이 한결 든든해졌다." },
+  { key: "cpr", img: "BF_CPR_THANKS", imgIf: s => s === SHELTER_ROUTE[5] /* 그림은 편의점 앞 낮 장면 */, hp: 6, when: s => flags.a_cpr && flags.cprAt != null && scenes.indexOf(s) === flags.cprAt + 1,
+    text: "🫀 가슴압박을 해 준 분의 가족이 찾아와 \"덕분에 살았어요\" 하며 손을 꼭 잡고 물과 빵을 건넸다. 마음이 한결 든든해졌다." },
   { key: "fever", img: "BF_FEVER_MOM", hp: 5, when: s => flags.bf_fever && s === EVAC_ROUTE[2],
     text: "🤒 버스에서 해열제를 받은 아이 엄마가 고맙다며 여분의 담요를 챙겨 줬다." },
   { key: "note", img: "BF_REUNION", hp: 8, when: s => flags.bf_note && !flags.metFamily && s === (GROUP_SCENES[group][1] || GROUP_SCENES[group][0]),
     text: "📝 붙여 둔 쪽지를 보고 달려온 가족과 입구에서 잠깐 만났다! 서로 무사한 걸 확인하고 눈시울을 붉혔다." },
   { key: "share", img: "BF_NEIGHBOR_CARRY", hp: 5, when: s => flags.bf_share && s === NEIGHBOR_ROUTE[3],
-    text: "🤝 새벽에 물과 음식을 나눴던 이웃들이 찾아와 \"함께 챙겨 봐요\" 하며 짐 정리를 거들어 줬다." },
+    text: "🤝 새벽에 물과 음식을 나눴던 이웃들이 찾아와 \"같이 움직여요\" 하며 할머니 부축을 거들어 줬다." },
   { key: "radio", img: "BF_RADIO_CROWD", hp: 2, info: 1, when: s => flags.bf_radio && s === EVAC_NOTICE,
     text: "📻 어제 라디오 소식을 나눴던 사람들이 다가와, 안내방송 내용을 함께 차분히 확인했다." },
-  { key: "loot", img: "BF_CCTV", hp: -8, when: s => flags.bf_loot && (s === EVAC_ROUTE[0] || s === EVADE_ROUTE[1] || (group !== "D" && s === GROUP_SCENES[group][1])),   // 🦋 모순 검토 반영: 긴박한 주민센터 집결지는 뺌
+  { key: "loot", img: "BF_CCTV", imgIf: s => s === EVAC_ROUTE[0] /* 그림은 밤 집결지 */, hp: -8, when: s => flags.bf_loot && (s === EVAC_ROUTE[0] || s === EVADE_ROUTE[1] || (group !== "D" && s === GROUP_SCENES[group][1])),   // 🦋 모순 검토 반영: 긴박한 주민센터 집결지는 뺌
     text: "🚨 가게 도난 신고 인상착의와 비슷하다며 담당자가 한참 동안 캐물었다. 진땀을 뺐다.",
     alt: s => s === EVADE_ROUTE[1] ? "🚨 검문소에서 가게 도난 신고 인상착의와 비슷하다며 한참 동안 붙잡혀 있었다. 진땀을 뺐다." : null },
   { key: "blockcar", img: "BF_AMBULANCE", coop: -1, when: s => flags.bf_blockcar && scenes.includes(ROAD_ROUTE[3]) && scenes.indexOf(s) === scenes.indexOf(ROAD_ROUTE[3]) + 1,
@@ -3871,16 +3893,16 @@ function butterflyCheck(s) {
     if (flags["bfDone_" + b.key] || !b.when(s)) continue;
     flags["bfDone_" + b.key] = true;
     if (b.key === "phone") {   // 보조배터리가 있으면 괜찮음
-      if (has("battery")) { out.push({ up: true, img: b.img, text: "📵 전화를 계속 걸어 배터리가 바닥났지만, 보조배터리로 충전해 둬서 재난문자를 바로 확인했다." }); continue; }
+      if (has("battery")) { out.push({ up: true, img: b.img, text: "📵 전화를 계속 걸어 배터리가 바닥났지만, 보조배터리로 충전해 둬서 저장해 둔 번호와 메모는 볼 수 있었다." }); continue; }
       hp = clampHp(hp - 3);
-      out.push({ up: false, img: b.img, text: "📵 전화를 계속 걸다 배터리가 다 나가서, 재난문자를 옆 사람 휴대폰으로 겨우 봤다. ❤️ −3" });
+      out.push({ up: false, img: b.img, text: "📵 전화를 계속 걸다 배터리가 다 나가서, 저장해 둔 번호도 메모도 볼 수 없게 됐다. ❤️ −3" });
       continue;
     }
     if (b.hp) hp = clampHp(hp + b.hp);
     if (b.coop) traits.coop += b.coop;
     if (b.info) traits.info = (traits.info || 0) + b.info;
     if (b.gain && !addItem(b.gain) && ITEM_BY_ID[b.gain].uses) uses[b.gain] = ITEM_BY_ID[b.gain].uses;
-    out.push({ up: (b.hp || 0) >= 0 && !b.coop && !b.down, img: b.img, text: ((b.alt && b.alt(s)) || b.text) + (b.hp ? ` ❤️ ${b.hp > 0 ? "+" : "−"}${Math.abs(b.hp)}` : "") });
+    out.push({ up: (b.hp || 0) >= 0 && !b.coop && !b.down, img: b.imgIf && !b.imgIf(s) ? null : b.img, text: ((b.alt && b.alt(s)) || b.text) + (b.hp ? ` ❤️ ${b.hp > 0 ? "+" : "−"}${Math.abs(b.hp)}` : "") });
   }
   if (!out.length) return null;
   return { up: out.every(n => n.up), img: (out.find(n => n.img) || {}).img, text: out.map(n => n.text).join("<br>") };
@@ -4292,7 +4314,7 @@ function consume(id) {
 }
 
 // 이 물건이 지금 장면의 물건 답인지
-const sceneHit = (s, id) => { const it = ITEM_BY_ID[id]; return s && s.items ? s.items[id] || (it.cat && s.items[it.cat]) || comboHit(s, id) : null; };
+const sceneHit = (s, id) => { const it = ITEM_BY_ID[id]; if (!s || !s.items) return null; if (id in s.items) return s.items[id]; return (it.cat && s.items[it.cat]) || comboHit(s, id); };   // items 값이 null이면 일부러 뺀 물건
 // 예전 '가방의 ○○를 같이 써요' 선택지(combos)도 가방에서 그 물건을 누르면 씀
 function comboHit(s, id) { const c = (s.combos || []).find(c => matchesNeed(id, c.needAny)); return c ? { ...comboChoice(c, id), combo: true } : null; }
 const eatVerb = it => /생수|물|커피/.test(it.name) ? "마신다" : "먹는다";
@@ -4335,13 +4357,13 @@ function applyUse(index, id, act) {
     resolve(index, { label: `🎒 ${nameOf(id)} 사용`, ...hit, ...rEvac, hp: (hit.hp || 0) + (selfEat ? it.heal : 0), fromItem: true });
     return;
   }
-  if (act === "self" && !it.heal) { toast(`${jo(nameOf(id), "은", "는")} 지금 나에겐 필요 없어 보인다.`, false); rerender(() => renderScene(index)); return; }
+  if (act === "self" && !it.heal) { toast(`${jo(nameOf(id), "은", "는")} 내가 쓸 때가 아니다.${s.giveTo ? ` ${s.giveTo}에게 건네 보자.` : ""}`, false); rerender(() => renderScene(index)); return; }
   if (act === "self" && it.heal) {
     logUse(id, index); consume(id);
     hp = clampHp(hp + it.heal);
     toast(`${nameOf(id)}: ${eatVerb(it) === "마신다" ? "마시고" : "먹고"} 나니 기운이 난다. ❤️ +${it.heal}`, true);
   } else if (!Object.keys(s.items).length) {   // 물건으로 푸는 장면이 아니면 감점 없이 안내만
-    toast(`${jo(nameOf(id), "은", "는")} 지금은 쓸 데가 없다. 선택지 중에서 골라 보자.`, false);
+    toast("지금은 물건을 쓸 상황이 아니다. 선택지 중에서 골라 보자.", false);
   } else if (tried.includes(id)) {      // 같은 물건을 또 눌러도 감점은 한 번만
     toast(`${jo(nameOf(id), "은", "는")} 아까 꺼내 봤지만 소용없었다.`, false);
   } else {
@@ -5105,6 +5127,7 @@ function autoChoice(s, mode) {
   const owned = [...placed.map(p => p.id), ...pocket];
   const cands = s.actions.filter(a => !a.need || has(a.need)).map(a => ({ label: a.t, ...a }));
   Object.entries(s.items).forEach(([key, v]) => {
+    if (!v) return;   // null = 일부러 뺀 물건
     const cat = ITEM_BY_ID[key] ? ITEM_BY_ID[key].cat : key;
     const id = owned.includes(key) ? key : owned.find(x => cat && ITEM_BY_ID[x].cat === cat);
     if (!id) return;
@@ -5242,6 +5265,7 @@ function comboChoice(c, id) {
 function bestOf(s) {
   const cands = s.actions.filter(a => !a.need && !a.neutral).map(a => ({ label: a.t, p: a.p, item: null }))
     .concat(Object.entries(s.items).map(([key, v]) => {
+      if (!v) return null;
       const id = poolItemFor(key);
       return id ? { label: `가방에서 ${nameOf(id)} 사용`, p: v.p, item: key } : null;
     }).filter(Boolean))
